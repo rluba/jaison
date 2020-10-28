@@ -1,12 +1,13 @@
 # JSON serialization / deserialization module for Jai
 
-This module offers two interfaces: One uses "generic data structures" built from `JSON_Value` and 
-a typed version that serializes / deserializes your types.
+This module offers two interfaces:
+* one uses a "generic tree" built from `JSON_Value` 
+* the other is a typed version that serializes / deserializes your custom data structures.
 
-The generic JSON_Value structures are a pain to consume and even worse to produce by hand.
-But they allow you to parse any JSON, even if you don’t know the structure. See `generic.jai` for details.
+The generic `JSON_Value` graphs are a pain to consume and even worse to produce by hand.
+But they allow you to parse any JSON, even if you don’t know the structure (or can’t reproduce it in Jai because it varies).
 
-The typed interface is what you want for most cases. See `typed.jai` for details.
+The typed interface is what you want for most cases.
 
 ## Parsing / Deserialization
 
