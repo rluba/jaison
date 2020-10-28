@@ -1,4 +1,7 @@
-
+// Parse a JSON string into the given Type.
+// All members of Type that are not present in the JSON are kept at their default values.
+// All fields in the JSON that have no corresponding member in Type are ignored by default
+// but you can pass ignore_unknown = false to fail instead.
 json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> T, success: bool {
 	result: T;
 	info := type_info(T);

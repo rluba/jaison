@@ -27,31 +27,30 @@ json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ig
 	}
 }
 
+// This function is useful if you have a JSON template string and just want to
+// safely insert a value without having to replicate the full json structure in Jai.
+// The return value does NOT include quotes around the string.
+//
+// Example:
+// JSON_TEMPLATE :: #string END
+// {
+// 	"complicated": {
+// 		"json": {
+// 			"structure": {
+// 				"for_a_stupid_api": {
+// 					"that_needs": [
+// 						{"a_deeply_nested_value": "%1"}
+// 					]
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+// END
+// escaped_value := json_escape_string(my_unsafe_value);
+// defer free(escaped_value);
+// json_str := print(JSON_TEMPLATE, escaped_value);
 json_escape_string :: (str: string) -> string {
-	// Useful if you have a simple JSON template string and just want to
-	// safely insert a value without having to replicate a full json structure in Jai.
-	// The result does NOT include quotes around the string.
-	//
-	// Example:
-	// JSON_TEMPLATE :: #string END
-	// {
-	// 	"complicated": {
-	// 		"json": {
-	// 			"structure": {
-	// 				"for_a_stupid_api": {
-	// 					"that_needs": [
-	// 						{"a_deeply_nested_value": "%1"}
-	// 					]
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// END
-	// escaped_value := json_escape_string(my_unsafe_value);
-	// defer free(escaped_value);
-	// json_str := print(JSON_TEMPLATE, escaped_value);
-
 	builder: String_Builder;
 	defer	free_buffers(*builder);
 	json_append_escaped(*builder, str);
