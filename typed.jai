@@ -2,6 +2,7 @@
 // All members of Type that are not present in the JSON are kept at their default values.
 // All fields in the JSON that have no corresponding member in Type are ignored by default
 // but you can pass ignore_unknown = false to fail instead.
+//@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
 json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> T, success: bool {
 	result: T;
 	info := type_info(T);
@@ -18,7 +19,7 @@ json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> T, s
 }
 
 json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> T, success: bool {
-    file_data, success := read_entire_file(filename);
+	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
 		report_error("Couldn’t read file");
@@ -30,7 +31,6 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> T, su
 	result, success = json_parse_string(file_data, T, ignore_unknown);
 	return result, success;
 }
-
 
 json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, level := 0) {
 	if info.type == {
@@ -45,20 +45,20 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 		case .STRING;
 			json_append_escaped(builder, <<(cast(*string) data));
 		case .ARRAY;
-            info_array := cast(*Type_Info_Array) info;
-            element_size := info_array.element_type.runtime_size;
-            assert(element_size != -1);  // @Robustness @Incomplete: Right now, at compile time, this might fail.
+			info_array := cast(*Type_Info_Array) info;
+			element_size := info_array.element_type.runtime_size;
+			assert(element_size != -1);  // @Robustness @Incomplete: Right now, this might fail.
 
-            stride := get_array_stride(element_size);
+			stride := get_array_stride(element_size);
 			array_data := data;
 			array_count := info_array.array_count;
-            if info_array.array_count == -1 {
-                assert(info_array.relative_pointer_size == 0);  // @Incomplete: Relative pointer arrays not yet handled.
+			if info_array.array_count == -1 {
+				assert(info_array.relative_pointer_size == 0, "Relative pointers are not yet supported"); @Incomplete
 
-                array_count = << cast(*s64) data;
+				array_count = << cast(*s64) data;
 
-                array_dest: **void = data + 8;
-                array_data = << array_dest;
+				array_dest: **void = data + 8;
+				array_data = << array_dest;
 			}
 
 			append(builder, "[");
@@ -90,7 +90,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			append(builder, "}");
 		case .POINTER;
 			ptr_info := cast(*Type_Info_Pointer) info;
-			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported");
+			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); @Incomplete
 			ptr := << cast(**void) data;
 			if ptr {
 				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, level);
@@ -127,8 +127,8 @@ json_write_native_members :: (builder: *String_Builder, data: *void, members: []
 }
 
 get_array_stride :: (size: s64) -> s64 {
-    // @Robustness: We assume 8-byte alignment for now.
-    return (size + 7) & ~7;
+	// @Robustness: We assume 8-byte alignment for now.
+	return (size + 7) & ~7;
 }
 
 parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool) -> remainder: string, success: bool {
@@ -139,7 +139,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		value_info := info;
 		if info.type == .POINTER {
 			pointer_info := cast(*Type_Info_Pointer) info;
-			assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported");
+			assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); @Incomplete
 			value_info = pointer_info.pointer_to;
 		}
 		if value_info.type != expected_type {
@@ -219,7 +219,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown);
 			}
 		case;
-			// @ToDo: implement float!
+			// @ToDo, @Incomplete: Check the slot type and parse as float, if needed! (…or if the slot is null)
 			int_value: s64;
 			int_value, success, remainder = to_integer(remainder);
 			if success && slot {
@@ -241,10 +241,10 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	stride: int;
 	if slot {
 		assert(info.array_count == -1, "Fixed array are not implemented yet");
-		assert(info.relative_pointer_size == 0, "Relative pointers are not implemented yet");  // @Incomplete: Relative pointer arrays not yet handled.
+		assert(info.relative_pointer_size == 0, "Relative pointers are not yet supported");  // @Incomplete
 
 		element_size = info.element_type.runtime_size;
-		assert(element_size != -1, "Unknown element size");  // @Robustness @Incomplete: Right now, at compile time, this might fail.
+		assert(element_size != -1, "Unknown element size");  // @Robustness @Incomplete: Right now, this might fail.
 		stride = get_array_stride(element_size);
 	}
 
@@ -296,9 +296,9 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 }
 
 maybe_grow :: (array: *Resizable_Array, element_size: s64) {
-    if array.count >= array.allocated {
-        reserve := 2 * array.allocated;
-        if reserve < 8  reserve = 8;
+	if array.count >= array.allocated {
+		reserve := 2 * array.allocated;
+		if reserve < 8  reserve = 8;
 
 		if !array.allocator {
 			if context.allocator {
@@ -313,7 +313,7 @@ maybe_grow :: (array: *Resizable_Array, element_size: s64) {
 		assert(array.data != null); // Program will die if we couldn't get memory. We can think about an alternative strategy, but it's hard to know what would be reasonable.
 
 		array.allocated = reserve;
-    }
+	}
 }
 
 parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool) -> remainder: string, success: bool {
@@ -367,80 +367,80 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 }
 
 write_integer :: (info: *Type_Info_Integer, pointer: *void, value: s64) -> bool {
-    if info.signed {
-        valid, low, high := range_check_and_store(value, info, pointer);
+	if info.signed {
+		valid, low, high := range_check_and_store(value, info, pointer);
 
-        if !valid {
-            report_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
-            return false;
-        }
-    } else {
-        valid, low, high := range_check_and_store(cast(u64) value, info, pointer);  // Different overload from the above!
+		if !valid {
+			report_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
+			return false;
+		}
+	} else {
+		valid, low, high := range_check_and_store(cast(u64) value, info, pointer);  // Different overload from the above!
 
-        if !valid {
-            report_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
-            return false;
-        }
-    }
+		if !valid {
+			report_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
+			return false;
+		}
+	}
 
-    return true;
+	return true;
 }
 
 range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -> (success: bool, low: T, high: T) {
-    #assert((T == u64) || (T == s64));
+	#assert((T == u64) || (T == s64));
 
-    size := info.runtime_size;
+	size := info.runtime_size;
 
-    #if T == u64 {
-        low, high := unsigned_integer_range_from_size(size);
-        if (value < low) || (value > high)  return false, low, high;
+	#if T == u64 {
+		low, high := unsigned_integer_range_from_size(size);
+		if (value < low) || (value > high)  return false, low, high;
 
-        store(pointer, value, size);
-        return true, low, high;
-    } else {
-        low, high := signed_integer_range_from_size(size);
-        if (value < low) || (value > high)  return false, low, high;
+		store(pointer, value, size);
+		return true, low, high;
+	} else {
+		low, high := signed_integer_range_from_size(size);
+		if (value < low) || (value > high)  return false, low, high;
 
-        store(pointer, value, size);
-        return true, low, high;
-    }
+		store(pointer, value, size);
+		return true, low, high;
+	}
 
-    store :: (pointer: *void, value: T, size: int) {
-        if size == {
-            case 1;
-                << cast(*s8)  pointer = xx,no_check value;
-            case 2;
-                << cast(*s16) pointer = xx,no_check value;
-            case 4;
-                << cast(*s32) pointer = xx,no_check value;
-            case 8;
-                << cast(*s64) pointer = xx,no_check value;
-            case;
-            assert(false);
-        }
-    }
+	store :: (pointer: *void, value: T, size: int) {
+		if size == {
+			case 1;
+			<< cast(*s8)  pointer = xx,no_check value;
+			case 2;
+			<< cast(*s16) pointer = xx,no_check value;
+			case 4;
+			<< cast(*s32) pointer = xx,no_check value;
+			case 8;
+			<< cast(*s64) pointer = xx,no_check value;
+			case;
+			assert(false);
+		}
+	}
 
 }
 
 signed_integer_range_from_size :: (size_in_bytes: int) -> (low: s64, high: s64) {
-    assert((size_in_bytes == 1) || (size_in_bytes == 2) || (size_in_bytes == 4) || (size_in_bytes == 8));
+	assert((size_in_bytes == 1) || (size_in_bytes == 2) || (size_in_bytes == 4) || (size_in_bytes == 8));
 
-    high := (1 << (size_in_bytes*8-1)) - 1;
-    low  := ~high;
+	high := (1 << (size_in_bytes*8-1)) - 1;
+	low  := ~high;
 
-    return low, high;
+	return low, high;
 }
 
 unsigned_integer_range_from_size :: (size_in_bytes: int) -> (low: u64, high: u64) {
-    assert((size_in_bytes == 1) || (size_in_bytes == 2) || (size_in_bytes == 4) || (size_in_bytes == 8));
+	assert((size_in_bytes == 1) || (size_in_bytes == 2) || (size_in_bytes == 4) || (size_in_bytes == 8));
 
-    high: u64 = ---;
-    if size_in_bytes == 8 {
-        high = cast(u64) 0xffff_ffff_ffff_ffff;  // Hardcode 8 to prevent unpredictable behavior due to platform-specific details. In the future the outcome of << will be language-defined in all cases.
-    } else {
-        high = cast(u64) (1 << (size_in_bytes*8)) - 1;  // @CompilerBug: Why do we need to cast the 1? That is dumb.
-    }
+	high: u64 = ---;
+	if size_in_bytes == 8 {
+		high = cast(u64) 0xffff_ffff_ffff_ffff;  // Hardcode 8 to prevent unpredictable behavior due to platform-specific details. In the future the outcome of << will be language-defined in all cases.
+	} else {
+		high = cast(u64) (1 << (size_in_bytes*8)) - 1;  // @CompilerBug: Why do we need to cast the 1? That is dumb.
+	}
 
-    return 0, high;
+	return 0, high;
 }
 
