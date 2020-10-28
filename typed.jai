@@ -53,7 +53,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			array_data := data;
 			array_count := info_array.array_count;
 			if info_array.array_count == -1 {
-				assert(info_array.relative_pointer_size == 0, "Relative pointers are not yet supported"); @Incomplete
+				assert(info_array.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 
 				array_count = << cast(*s64) data;
 
@@ -90,7 +90,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			append(builder, "}");
 		case .POINTER;
 			ptr_info := cast(*Type_Info_Pointer) info;
-			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); @Incomplete
+			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			ptr := << cast(**void) data;
 			if ptr {
 				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, level);
@@ -139,7 +139,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		value_info := info;
 		if info.type == .POINTER {
 			pointer_info := cast(*Type_Info_Pointer) info;
-			assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); @Incomplete
+			assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			value_info = pointer_info.pointer_to;
 		}
 		if value_info.type != expected_type {
