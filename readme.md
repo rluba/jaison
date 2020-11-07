@@ -42,3 +42,7 @@ json_str := json_write_string(my_value);
 where `my_value` is either a `JSON_Value` or any other data structure.
 
 See [`module.jai`](./module.jai) for details and additional parameters.
+
+## Dependencies
+
+This module uses [the `unicode` module](https://github.com/rluba/jai-unicode).
