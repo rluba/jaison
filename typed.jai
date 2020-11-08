@@ -148,7 +148,6 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		}
 		if info.type == .POINTER {
 			value_slot := alloc(value_info.runtime_size);
-			print("Alloced % for pointer type %: %\n", value_info.runtime_size, <<value_info, value_slot);
 			<<cast(**u8)slot = value_slot;
 			return value_slot, true, value_info;
 		} else {
