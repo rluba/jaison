@@ -149,27 +149,22 @@ DONE
 generic_printing :: () {
     // We want to write JSON with arbitrary structure.
 
-    // Create object
-    root := JSON_Value.{type=.OBJECT};
-
-    // Initialize object
-    temp: JSON_Object;
-    root.value.object = *temp;
-    defer Hash_Table.uninit(root.value.object);
+    // Create and initialize object
+    root_obj: JSON_Object;
+    root := json_value(*root_obj);
 
     // Add music index to object, in certain cases
     should_add_music := true;
-    if (should_add_music) {
-        music_index := JSON_Value.{type=.NUMBER, value.number=3};
-        Hash_Table.table_add(root.value.object, "music_index", music_index);
+    if should_add_music {
+        json_set(*root_obj, "music_index", .{type=.NUMBER, value.number=3});
     }
 
     // Create array
     array := JSON_Value.{type=.ARRAY};
 
     // Initialize array
-	temp2: [..]JSON_Value;
-    array.value.array = temp2;
+	temp: [..]JSON_Value;
+    array.value.array = temp;
 
     // Add things to array
     junk := JSON_Value.{type=.STRING, value.str="junk"};
@@ -177,7 +172,7 @@ generic_printing :: () {
     array_add(*array.value.array, junk);
 
     // Add array to object
-    Hash_Table.table_add(root.value.object, "junk_array", array);
+    json_set(*root_obj, "junk_array", array);
 
     // Print result
     json_string := json_write_string(root);
