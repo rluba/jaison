@@ -17,7 +17,7 @@ JSON_Type :: enum u8 {
 
 JSON_Value :: struct {
 	type: JSON_Type;
-	value: union {
+	union {
 		boolean: bool;
 		number: float64;
 		str: string;
@@ -35,20 +35,20 @@ json_free :: (using val: JSON_Value) {
 		case .NUMBER;
 
 		case .STRING;
-			free(value.str);
+			free(str);
 		case .ARRAY;
-			for value.array {
+			for array {
 				json_free(it);
 			}
-			array_free(value.array);
+			array_free(array);
 		case .OBJECT;
-			for value.object {
+			for object {
 				free(it_index);
 				json_free(it);
 			}
-			uninit(value.object);
+			uninit(object);
 
-			free(value.object);
+			free(object);
 	}
 }
 
@@ -85,31 +85,31 @@ print_val :: (using val: JSON_Value) {
 		case .NULL;
 			log(.VERBOSE, "null");
 		case .BOOLEAN;
-			log(.VERBOSE, "%", value.boolean);
+			log(.VERBOSE, "%", boolean);
 		case .NUMBER;
-			log(.VERBOSE, "%", value.number);
+			log(.VERBOSE, "%", number);
 		case .STRING;
-			log(.VERBOSE, "\"%\"", value.str);
+			log(.VERBOSE, "\"%\"", str);
 		case .ARRAY;
 			log(.VERBOSE, "[");
-			for value.array	print_val(it);
+			for array	print_val(it);
 			log(.VERBOSE, "]");
 		case .OBJECT;
-			log(.VERBOSE, "%", <<value.object);
+			log(.VERBOSE, "%", <<object);
 	}
 }
 
 json_value :: (str: string) -> JSON_Value {
 	val: JSON_Value;
 	val.type = JSON_Type.STRING;
-	val.value.str = str;
+	val.str = str;
 	return val;
 }
 
 json_value :: (obj: *JSON_Object) -> JSON_Value {
 	val: JSON_Value;
 	val.type = JSON_Type.OBJECT;
-	val.value.object = obj;
+	val.object = obj;
 	return val;
 }
 
@@ -118,20 +118,20 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 		case JSON_Type.NULL;
 			append(builder, "null");
 		case JSON_Type.BOOLEAN;
-			append(builder, ifx value.boolean "true" else "false");
+			append(builder, ifx boolean "true" else "false");
 		case JSON_Type.NUMBER;
-			print_item_to_builder(builder, value.number);
+			print_item_to_builder(builder, number);
 		case JSON_Type.STRING;
-			json_append_escaped(builder, value.str);
+			json_append_escaped(builder, str);
 		case JSON_Type.ARRAY;
 			append(builder, "[");
-			for value.array {
+			for array {
 				if indent_char.count {
 					append(builder, "\n");
 					for 0..level	append(builder, indent_char);
 				}
 				json_write_json_value(builder, it, indent_char, level + 1);
-				if it_index != value.array.count - 1	append(builder, ",");
+				if it_index != array.count - 1	append(builder, ",");
 			}
 			if indent_char.count {
 				append(builder, "\n");
@@ -140,7 +140,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 			append(builder, "]");
 		case JSON_Type.OBJECT;
 			append(builder, "{");
-			obj := value.object;
+			obj := object;
 			keys: [..] string;
 			defer array_free(keys);
 			array_reserve(*keys, obj.count);
@@ -184,7 +184,7 @@ json_set :: (obj: *JSON_Object, path: string, val: JSON_Value) -> bool {
 	next_obj: *JSON_Object;
 	if success {
 		if next_value.type != JSON_Type.OBJECT	return false;
-		next_obj = xx next_value.value.object;
+		next_obj = xx next_value.object;
 	} else {
 		next_obj = cast(*JSON_Object) alloc(size_of(JSON_Object));
 		memset(next_obj, 0, size_of(JSON_Object));
@@ -193,6 +193,40 @@ json_set :: (obj: *JSON_Object, path: string, val: JSON_Value) -> bool {
 	}
 
 	return json_set(next_obj, remainder, val);
+}
+
+get_as :: (val: JSON_Value, $T: Type) -> T {
+	#insert #run () -> string {
+		if T == bool {
+			return #string END
+				assert(val.type == .BOOLEAN, "Expected a % but got %", T, val.type);
+				return val.boolean;
+			END;
+		} else if T == float || T == float64 {
+			return #string END
+				assert(val.type == .NUMBER, "Expected a % but got %", T, val.type);
+				return cast(T) val.number;
+			END;
+		} else if T == string {
+			return #string END
+				assert(val.type == .STRING, "Expected a % but got %", T, val.type);
+				return val.str;
+			END;
+		} else if T == [..] JSON_Value {
+			return #string END
+				assert(val.type == .ARRAY, "Expected a % but got %", T, val.type);
+				return val.array;
+			END;
+		} else if T == JSON_Object {
+			return #string END
+				assert(val.type == .OBJECT, "Expected a % but got %", T, val.type);
+				return <<val.object;
+			END;
+		} else {
+			compiler_report("Unsupported type");
+			return "";
+		}
+	}();
 }
 
 #scope_file
@@ -211,7 +245,7 @@ parse_value :: (to_parse: string) -> JSON_Value, remainder: string, success: boo
 			remainder, success = expect_and_slice(remainder, "true");
 			if !success		return result, remainder, false;
 			result.type = JSON_Type.BOOLEAN;
-			result.value.boolean = true;
+			result.boolean = true;
 			return result, remainder, true;
 		case #char "f";
 			remainder, success = expect_and_slice(remainder, "false");
@@ -224,14 +258,14 @@ parse_value :: (to_parse: string) -> JSON_Value, remainder: string, success: boo
 			result = json_value(str);
 		case #char "[";
 			result.type = JSON_Type.ARRAY;
-			result.value.array, remainder, success = parse_array(remainder);
+			result.array, remainder, success = parse_array(remainder);
 		case #char "{";
 			obj := cast(*JSON_Object) alloc(size_of(JSON_Object));
 			<<obj, remainder, success = parse_object(remainder);
 			result = json_value(obj);
 		case;
 			result.type = JSON_Type.NUMBER;
-			result.value.number, success, remainder = string_to_float64(remainder);
+			result.number, success, remainder = string_to_float64(remainder);
 	}
 
 	return result, remainder, success;
@@ -387,3 +421,4 @@ unescape :: (str: string) -> result: string, success: bool {
 	return result, true;
 }
 
+#import "Compiler";
