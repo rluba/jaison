@@ -193,12 +193,8 @@ unescape :: (str: string) -> result: string, success: bool {
 	return result, true;
 }
 
-log :: (mode: Log_Mode, format: string, args: .. Any) {
-	logprint("json", mode, format, .. args);
-}
-
 report_error :: (format: string, args: .. Any) {
-    log(Log_Mode.MINIMAL, format, .. args);
+    log(format, .. args);
 }
 
 #import "Basic";

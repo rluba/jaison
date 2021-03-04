@@ -22,12 +22,14 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> T, su
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
-		report_error("Couldn’t read file");
+		report_error("Couldn’t read file: %", filename);
 		return result, false;
 	}
 	defer free(file_data);
 
-	log(Log_Mode.VERBOSE, "Read file: %", success);
+	if (context.log_level >= .VERBOSE) {
+		log("Read file: %", success);
+	}
 	result, success = json_parse_string(file_data, T, ignore_unknown);
 	return result, success;
 }
