@@ -61,7 +61,8 @@ json_parse_file :: (filename: string) -> JSON_Value, success: bool {
 	}
 	defer free(file_data);
 
-	log(Log_Mode.VERBOSE, "Read file: %", success);
+
+	if context.log_level >= .VERBOSE log("Read file: %", success);
 	result, success = json_parse_string(file_data);
 	return result, success;
 }
@@ -83,19 +84,19 @@ json_parse_string :: (content: string) -> JSON_Value, success: bool {
 print_val :: (using val: JSON_Value) {
 	if #complete type == {
 		case .NULL;
-			log(.VERBOSE, "null");
+			print("null");
 		case .BOOLEAN;
-			log(.VERBOSE, "%", boolean);
+			print("%", boolean);
 		case .NUMBER;
-			log(.VERBOSE, "%", number);
+			print("%", number);
 		case .STRING;
-			log(.VERBOSE, "\"%\"", str);
+			print("\"%\"", str);
 		case .ARRAY;
-			log(.VERBOSE, "[");
+			print("[");
 			for array	print_val(it);
-			log(.VERBOSE, "]");
+			print("]");
 		case .OBJECT;
-			log(.VERBOSE, "%", <<object);
+			print("%", <<object);
 	}
 }
 

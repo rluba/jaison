@@ -75,15 +75,15 @@ DONE
         case .NULL;
             print("\n");
         case .BOOLEAN;
-            print("%\n", node.value.boolean);
+            print("%\n", node.boolean);
         case .NUMBER;
-            print("%\n", node.value.number);
+            print("%\n", node.number);
         case .STRING;
-            print("%\n", node.value.str);
+            print("%\n", node.str);
 
         case .OBJECT;
             print("{\n");
-            for node.value.object {
+            for node.object {
                 print("%: ", it_index);
                 traverse_node(it);
             }
@@ -91,7 +91,7 @@ DONE
 
         case .ARRAY;
             print("[\n");
-            for node.value.array {
+            for node.array {
                 traverse_node(it);
             }
             print("]\n");
@@ -107,7 +107,7 @@ DONE
     // Convenience function for grabbing object members
     get :: (json_val: JSON_Value, key: string, expected_type: JSON_Type) -> JSON_Value {
         assert(json_val.type == .OBJECT);
-        table := <<json_val.value.object;
+        table := <<json_val.object;
         val, success := Hash_Table.table_find(table, key);
         assert(success);
         assert(val.type == expected_type);
@@ -117,26 +117,26 @@ DONE
     // Check for version number that may or may not exist
     version: float64 = -1;
     assert(root.type == .OBJECT);
-    val, success2 := Hash_Table.table_find(<<root.value.object, "version");
+    val, success2 := Hash_Table.table_find(<<root.object, "version");
     if success2 {
         if val.type == .NUMBER {
-            version = val.value.number;
+            version = val.number;
         }
     }
-    print("version: %\n");
+    print("version: %\n", version);
 
     // Traverse a structure we are confident about
-    for get(root, "entities", .ARRAY).value.array {
-        entity_name := get(it, "name", .STRING).value.str;
-        x := get(it, "x", .NUMBER).value.number / 32;
-        y := get(it, "y", .NUMBER).value.number / 32;
+    for get(root, "entities", .ARRAY).array {
+        entity_name := get(it, "name", .STRING).str;
+        x := get(it, "x", .NUMBER).number / 32;
+        y := get(it, "y", .NUMBER).number / 32;
 
         if entity_name == {
         case "Player";
-            player_index := cast(int) get(it, "player_index", .NUMBER).value.number;
+            player_index := cast(int) get(it, "player_index", .NUMBER).number;
             print("Player with player_index=%\n", player_index);
         case "Snake";
-            snake_color := cast(int) get(it, "snake_color", .NUMBER).value.number;
+            snake_color := cast(int) get(it, "snake_color", .NUMBER).number;
             print("Snake with snake_color=%\n", snake_color);
         case;
             //...
@@ -156,7 +156,7 @@ generic_printing :: () {
     // Add music index to object, in certain cases
     should_add_music := true;
     if should_add_music {
-        json_set(*root_obj, "music_index", .{type=.NUMBER, value.number=3});
+        json_set(*root_obj, "music_index", .{type=.NUMBER, number=3});
     }
 
     // Create array
@@ -164,12 +164,12 @@ generic_printing :: () {
 
     // Initialize array
 	temp: [..]JSON_Value;
-    array.value.array = temp;
+    array.array = temp;
 
     // Add things to array
-    junk := JSON_Value.{type=.STRING, value.str="junk"};
-    array_add(*array.value.array, junk);
-    array_add(*array.value.array, junk);
+    junk := JSON_Value.{type=.STRING, str="junk"};
+    array_add(*array.array, junk);
+    array_add(*array.array, junk);
 
     // Add array to object
     json_set(*root_obj, "junk_array", array);
