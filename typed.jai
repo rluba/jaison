@@ -34,7 +34,7 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> T, su
 	return result, success;
 }
 
-json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, level := 0) {
+json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, pretty_print := false, indent_char := "\t", ignore := ignore_by_note, level := 0) {
 	if info.type == {
 		case .BOOL;
 			append(builder, ifx <<(cast(*bool) data) "true" else "false");
@@ -65,17 +65,17 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 			append(builder, "[");
 			if array_data {
-				if indent_char.count {
+				if pretty_print && indent_char.count {
 					append(builder, "\n");
 					for 0..level	append(builder, indent_char);
 				}
 				for 0..array_count-1 {
-					json_write_native(builder, array_data, info_array.element_type, indent_char, ignore, level + 1);
+					json_write_native(builder, array_data, info_array.element_type, pretty_print, indent_char, ignore, level + 1);
 					if it != array_count - 1		append(builder, ",");
 					array_data += stride;
 				}
 			}
-			if indent_char.count {
+			if pretty_print && indent_char.count {
 				append(builder, "\n");
 				for 0..level-1	append(builder, indent_char);
 			}
@@ -84,8 +84,8 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			struct_info := cast(*Type_Info_Struct) info;
 			append(builder, #char "{");
 			first := true;
-			json_write_native_members(builder, data, struct_info.members, indent_char, ignore, level, *first);
-			if indent_char.count {
+			json_write_native_members(builder, data, struct_info.members, pretty_print, indent_char, ignore, level, *first);
+			if pretty_print && indent_char.count {
 				append(builder, "\n");
 				for 0..level-1	append(builder, indent_char);
 			}
@@ -95,7 +95,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			ptr := << cast(**void) data;
 			if ptr {
-				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, level);
+				json_write_native(builder, ptr, ptr_info.pointer_to, pretty_print, indent_char, ignore, level);
 			} else {
 				append(builder, "null");
 			}
@@ -106,24 +106,25 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 #scope_file
 
-json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
+json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, pretty_print := false, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
 	for * member: members {
 		if ignore(member)	continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
-			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, level, first);
+			json_write_native_members(builder, data + member.offset_in_bytes, info.members, pretty_print, indent_char, ignore, level, first);
 		} else {
 			if !<<first	append(builder, ",");
 			<<first = false;
 
-			if indent_char.count {
+			if pretty_print && indent_char.count {
 				append(builder, "\n");
 				for 0..level	append(builder, indent_char);
 			}
 
 			json_append_escaped(builder, member.name);
-			append(builder, ": ");
-			json_write_native(builder, data + member.offset_in_bytes, member.type, indent_char, ignore, level + 1);
+			append(builder, ":");
+			if pretty_print   append(builder, " ");
+			json_write_native(builder, data + member.offset_in_bytes, member.type, pretty_print, indent_char, ignore, level + 1);
 		}
 	}
 }

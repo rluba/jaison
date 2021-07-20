@@ -4,26 +4,26 @@
 // "indent_char" does what it says on the tin.
 // "ignore" is only used for custom types to determine which properties of your custom type should be serialized.
 //		The default ignore function ignores all struct members that have the note @JsonIgnore.
-json_write_string :: (value: $T, indent_char := "\t", ignore := ignore_by_note) -> string {
+json_write_string :: (value: $T, pretty_print := false, indent_char := "\t", ignore := ignore_by_note) -> string {
 	builder: String_Builder;
 	defer free_buffers(*builder);
-	json_append_value(*builder, value, indent_char, ignore);
+	json_append_value(*builder, value, pretty_print, indent_char, ignore);
 	return builder_to_string(*builder);
 }
 
-json_write_file :: (filename: string, value: $T, indent_char := "\t", ignore := ignore_by_note) -> bool {
+json_write_file :: (filename: string, value: $T, pretty_print := false, indent_char := "\t", ignore := ignore_by_note) -> bool {
 	builder: String_Builder;
 	defer free_buffers(*builder);
-	json_append_value(*builder, value, indent_char, ignore);
+	json_append_value(*builder, value, pretty_print, indent_char, ignore);
 	return write_entire_file(filename, builder);
 }
 
-json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ignore := ignore_by_note) {
+json_append_value :: (builder: *String_Builder, val: $T, pretty_print := false, indent_char := "\t", ignore := ignore_by_note) {
 	#if T == JSON_Value {
-		json_write_json_value(builder, val, indent_char);
+		json_write_json_value(builder, val, pretty_print, indent_char);
 	} else {
 		info := type_info(T);
-		json_write_native(builder, *val, info, indent_char, ignore);
+		json_write_native(builder, *val, info, pretty_print, indent_char, ignore);
 	}
 }
 
