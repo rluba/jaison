@@ -202,6 +202,6 @@ report_error :: (format: string, args: .. Any) {
 #import "String";
 
 #import "Hash_Table";
-#import "unicode";
+#import "unicode_utils";
 #import "IntroSort";
 

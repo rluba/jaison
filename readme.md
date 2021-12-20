@@ -45,4 +45,4 @@ See [`module.jai`](./module.jai) for details and additional parameters.
 
 ## Dependencies
 
-This module uses [the `unicode` module](https://github.com/rluba/jai-unicode).
+This module uses [the `unicode_utils` module](https://github.com/rluba/jai-unicode).

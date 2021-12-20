@@ -301,16 +301,15 @@ maybe_grow :: (array: *Resizable_Array, element_size: s64) {
 		reserve := 2 * array.allocated;
 		if reserve < 8  reserve = 8;
 
-		if !array.allocator {
-			if context.allocator {
+		if !array.allocator.proc {
+			if context.allocator.proc {
 				array.allocator      = context.allocator;
-				array.allocator_data = context.allocator_data;
 			} else {
 				array.allocator      = context.default_allocator;
 			}
 		}
 
-		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size, array.allocator, array.allocator_data);
+		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size, array.allocator);
 		assert(array.data != null); // Program will die if we couldn't get memory. We can think about an alternative strategy, but it's hard to know what would be reasonable.
 
 		array.allocated = reserve;
@@ -420,7 +419,6 @@ range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -
 			assert(false);
 		}
 	}
-
 }
 
 signed_integer_range_from_size :: (size_in_bytes: int) -> (low: s64, high: s64) {
