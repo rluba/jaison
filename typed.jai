@@ -150,6 +150,16 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		}
 		if info.type == .POINTER {
 			value_slot := alloc(value_info.runtime_size);
+			initializer: (*void);
+			if value_info.type == .STRUCT {
+				struct_info := cast(*Type_Info_Struct) value_info;
+				initializer = struct_info.initializer;
+			}
+			if initializer {
+				initializer(value_slot);
+			} else {
+				memset(value_slot, 0, value_info.runtime_size);
+			}
 			<<cast(**u8)slot = value_slot;
 			return value_slot, true, value_info;
 		} else {
