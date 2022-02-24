@@ -11,7 +11,7 @@ json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> T, s
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
 	if remainder.count {
-		report_error("Unexpected trailing characters: %", remainder);
+		log_error("Unexpected trailing characters: %", remainder);
 		return result, false;
 	}
 
@@ -22,7 +22,7 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> T, su
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
-		report_error("Couldn’t read file: %", filename);
+		log_error("Couldn’t read file: %", filename);
 		return result, false;
 	}
 	defer free(file_data);
@@ -145,7 +145,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			value_info = pointer_info.pointer_to;
 		}
 		if value_info.type != expected_type {
-			report_error("Cannot parse % value into type type %", expected_type, <<info);
+			log_error("Cannot parse % value into type type %", expected_type, <<info);
 			return null, false, value_info;
 		}
 		if info.type == .POINTER {
@@ -174,7 +174,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if slot {
 				// @ToDo, @Incomplete: Handle null properly
 				if info.type != .POINTER {
-					report_error("Got NULL value for non-pointer type %. Assigning default value instead.", <<info);
+					log_error("Got NULL value for non-pointer type %. Assigning default value instead.", <<info);
 				}
 			}
 			return remainder, true;
@@ -354,7 +354,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 			member_slot = slot + member.offset_in_bytes;
 			member_info = member.type;
 		} else if !ignore_unknown {
-			report_error("Missing member % in %", key, <<info);
+			log_error("Missing member % in %", key, <<info);
 			return remainder, false;
 		}
 
@@ -381,14 +381,14 @@ write_integer :: (info: *Type_Info_Integer, pointer: *void, value: s64) -> bool 
 		valid, low, high := range_check_and_store(value, info, pointer);
 
 		if !valid {
-			report_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
+			log_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
 			return false;
 		}
 	} else {
 		valid, low, high := range_check_and_store(cast(u64) value, info, pointer);  // Different overload from the above!
 
 		if !valid {
-			report_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
+			log_error("Value '%' is out of range. (The value must be between % and %.)", value, low, high);
 			return false;
 		}
 	}

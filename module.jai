@@ -108,7 +108,7 @@ index_of_illegal_string_char :: (str: string) -> s64 {
 
 expect_and_slice :: (str: string, expected: string) -> remainder: string, success: bool {
 	if str.count < expected.count || !equal(slice(str, 0, expected.count), expected) {
-		report_error("Unexpected token. Expected \"%\" but got: %", expected, str);
+		log_error("Unexpected token. Expected \"%\" but got: %", expected, str);
 		return str, false;
 	}
 	remainder := advance(str, expected.count);
@@ -191,10 +191,6 @@ unescape :: (str: string) -> result: string, success: bool {
 	}
 	result.count = rc;
 	return result, true;
-}
-
-report_error :: (format: string, args: .. Any) {
-    log(format, .. args);
 }
 
 #import "Basic";

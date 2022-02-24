@@ -56,7 +56,7 @@ json_parse_file :: (filename: string) -> JSON_Value, success: bool {
     file_data, success := read_entire_file(filename);
 	result: JSON_Value;
 	if !success		{
-		report_error("Couldn’t read file");
+		log_error("Couldn’t read file");
 		return result, false;
 	}
 	defer free(file_data);
@@ -73,7 +73,7 @@ json_parse_string :: (content: string) -> JSON_Value, success: bool {
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
 	if remainder.count {
-		report_error("Unexpected trailing characters: %", remainder);
+		log_error("Unexpected trailing characters: %", remainder);
 		return result, false;
 	}
 
