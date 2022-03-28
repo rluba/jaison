@@ -137,17 +137,21 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
 	success := true;
 
-	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8) -> *u8, success: bool, info: *Type_Info {
+	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, info: *Type_Info {
 		value_info := info;
 		if info.type == .POINTER {
 			pointer_info := cast(*Type_Info_Pointer) info;
 			assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			value_info = pointer_info.pointer_to;
 		}
+
 		if value_info.type != expected_type {
-			log_error("Cannot parse % value into type type %", expected_type, <<info);
+			teaser := to_parse;
+			if teaser.count > 50	teaser.count = 50;
+			log_error("Cannot parse % value into type %. Remaining input is: %…", expected_type, <<info, teaser);
 			return null, false, value_info;
 		}
+
 		if info.type == .POINTER {
 			value_slot := alloc(value_info.runtime_size);
 			initializer: (*void);
@@ -183,7 +187,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if !success		return remainder, false;
 			if slot {
 				value_slot: *u8;
-				value_slot, success = prepare_slot(.BOOL, info, slot);
+				value_slot, success = prepare_slot(.BOOL, info, slot, to_parse);
 				if success {
 					<<cast(*bool)value_slot = true;
 				}
@@ -193,7 +197,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if !success		return remainder, false;
 			if slot {
 				value_slot: *u8;
-				value_slot, success = prepare_slot(.BOOL, info, slot);
+				value_slot, success = prepare_slot(.BOOL, info, slot, to_parse);
 				if success {
 					<<cast(*bool)value_slot = false;
 				}
@@ -205,7 +209,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			defer if !stored	free(value);
 			if success && slot {
 				value_slot: *u8;
-				value_slot, success = prepare_slot(.STRING, info, slot);
+				value_slot, success = prepare_slot(.STRING, info, slot, to_parse);
 				if success {
 					<<cast(*string)value_slot = value;
 					stored = true;
@@ -215,7 +219,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			value_slot: *u8;
 			value_info: *Type_Info;
 			if slot {
-				value_slot, success, value_info = prepare_slot(.ARRAY, info, slot);
+				value_slot, success, value_info = prepare_slot(.ARRAY, info, slot, to_parse);
 			}
 			if success {
 				remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown);
@@ -224,7 +228,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			value_slot: *u8;
 			value_info: *Type_Info;
 			if slot {
-				value_slot, success, value_info = prepare_slot(.STRUCT, info, slot);
+				value_slot, success, value_info = prepare_slot(.STRUCT, info, slot, to_parse);
 			}
 			if success {
 				remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown);
@@ -236,7 +240,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if success && slot {
 				value_slot: *u8;
 				value_info: *Type_Info;
-				value_slot, success, value_info = prepare_slot(.INTEGER, info, slot);
+				value_slot, success, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
 				if success {
 					info_int := cast(*Type_Info_Integer) value_info;
 					success = write_integer(info_int, value_slot, int_value);
