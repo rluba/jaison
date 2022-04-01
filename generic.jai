@@ -21,7 +21,7 @@ JSON_Value :: struct {
 		boolean: bool;
 		number: float64;
 		str: string;
-		array: [..] JSON_Value;
+		array: [] JSON_Value;
 		object: *JSON_Object;
 	};
 }
@@ -213,7 +213,7 @@ get_as :: (val: JSON_Value, $T: Type) -> T {
 				assert(val.type == .STRING, "Expected a % but got %", T, val.type);
 				return val.str;
 			END;
-		} else if T == [..] JSON_Value {
+		} else if T == [] JSON_Value {
 			return #string END
 				assert(val.type == .ARRAY, "Expected a % but got %", T, val.type);
 				return val.array;
@@ -272,7 +272,7 @@ parse_value :: (to_parse: string) -> JSON_Value, remainder: string, success: boo
 	return result, remainder, success;
 }
 
-parse_array:: (str: string) -> result: [..] JSON_Value, remainder: string, success: bool {
+parse_array:: (str: string) -> result: [] JSON_Value, remainder: string, success: bool {
 	assert(str[0] == #char "[", "Invalid object start %", str);
 	remainder := advance(str);
 	result: [..] JSON_Value;
