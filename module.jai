@@ -99,7 +99,7 @@ json_append_escaped :: (builder: *String_Builder, str: string) {
 
 index_of_illegal_string_char :: (str: string) -> s64 {
 	for 0..str.count - 1 {
-		if str[it] == #char "\\" ||str[it] == #char "\"" || str[it] == #char "\n" || str[it] <= 0x1F {
+		if str[it] == #char "\\" || str[it] == #char "\"" || str[it] == #char "\n" || str[it] <= 0x1F {
 			return it;
 		}
 	}
