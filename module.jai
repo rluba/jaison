@@ -67,7 +67,7 @@ ignore_by_note :: (member: *Type_Info_Struct_Member) -> bool {
 
 #scope_module
 
-WHITESPACE_CHARS :: " \t\n";
+WHITESPACE_CHARS :: " \t\n\r";
 
 #load "generic.jai";
 #load "typed.jai";
