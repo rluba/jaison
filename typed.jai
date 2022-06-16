@@ -3,35 +3,35 @@
 // All fields in the JSON that have no corresponding member in Type are ignored by default
 // but you can pass ignore_unknown = false to fail instead.
 //@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
-json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> T, success: bool {
+json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> success: bool, T {
 	result: T;
 	info := type_info(T);
 	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown);
-	if !success		return result, false;
+	if !success		return false, result;
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
 	if remainder.count {
 		log_error("Unexpected trailing characters: %", remainder);
-		return result, false;
+		return false, result;
 	}
 
-	return result, true;
+	return true, result;
 }
 
-json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> T, success: bool {
+json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> success: bool, T {
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
 		log_error("Couldn’t read file: %", filename);
-		return result, false;
+		return false, result;
 	}
 	defer free(file_data);
 
 	if (context.log_level >= .VERBOSE) {
 		log("Read file: %", success);
 	}
-	result, success = json_parse_string(file_data, T, ignore_unknown);
-	return result, success;
+	success, result = json_parse_string(file_data, T, ignore_unknown);
+	return success, result;
 }
 
 json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, level := 0) {
@@ -234,16 +234,33 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown);
 			}
 		case;
-			// @ToDo, @Incomplete: Check the slot type and parse as float, if needed! (…or if the slot is null)
-			int_value: s64;
-			int_value, success, remainder = to_integer(remainder);
-			if success && slot {
-				value_slot: *u8;
-				value_info: *Type_Info;
-				value_slot, success, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
-				if success {
-					info_int := cast(*Type_Info_Integer) value_info;
-					success = write_integer(info_int, value_slot, int_value);
+			if slot == null || info.type == .FLOAT {
+				float_value: float64;
+				float_value, success, remainder = string_to_float64(remainder);
+				if success && slot {
+					value_slot: *u8;
+					value_info: *Type_Info;
+					value_slot, success, value_info = prepare_slot(.FLOAT, info, slot, to_parse);
+					if success {
+						if value_info.runtime_size == 4 {
+							(<< cast(*float) slot) = cast(float) float_value;
+						} else {
+							assert(value_info.runtime_size == 8);
+							(<< cast(*float64) slot) = float_value;
+						}
+					}
+				}
+			} else {
+				int_value: s64;
+				int_value, success, remainder = to_integer(remainder);
+				if success && slot {
+					value_slot: *u8;
+					value_info: *Type_Info;
+					value_slot, success, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
+					if success {
+						info_int := cast(*Type_Info_Integer) value_info;
+						success = write_integer(info_int, value_slot, int_value);
+					}
 				}
 			}
 	}

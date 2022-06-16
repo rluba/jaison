@@ -8,7 +8,6 @@ The generic `JSON_Value` graphs are a pain to consume and even worse to produce 
 But they allow you to parse any JSON, even if you don’t know the structure (or can’t reproduce it in Jai because it varies).
 
 The typed interface is what you want for most cases.
-**@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!**
 
 ## Parsing / Deserialization
 

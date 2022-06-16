@@ -52,32 +52,31 @@ json_free :: (using val: JSON_Value) {
 	}
 }
 
-json_parse_file :: (filename: string) -> JSON_Value, success: bool {
+json_parse_file :: (filename: string) -> success: bool, JSON_Value {
     file_data, success := read_entire_file(filename);
 	result: JSON_Value;
 	if !success		{
 		log_error("Couldn’t read file");
-		return result, false;
+		return false, result;
 	}
 	defer free(file_data);
 
-
 	if context.log_level >= .VERBOSE log("Read file: %", success);
-	result, success = json_parse_string(file_data);
-	return result, success;
+	success, result = json_parse_string(file_data);
+	return success, result;
 }
 
-json_parse_string :: (content: string) -> JSON_Value, success: bool {
+json_parse_string :: (content: string) -> success: bool, JSON_Value {
 	result, remainder, success := parse_value(content);
-	if !success		return result, false;
+	if !success		return false, result;
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
 	if remainder.count {
 		log_error("Unexpected trailing characters: %", remainder);
-		return result, false;
+		return false, result;
 	}
 
-	return result, true;
+	return true, result;
 }
 
 // For debug purposes
@@ -170,8 +169,8 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 }
 
 json_set :: (obj: *JSON_Object, path: string, val: JSON_Value) -> bool {
-	dotpos, found := index_of_char(path, #char ".");
-	if !found {
+	dotpos := find_index_from_left(path, #char ".");
+	if dotpos == -1 {
 		table_set(obj, path, val);
 		return true;
 	}

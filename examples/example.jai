@@ -4,7 +4,8 @@ LevelData :: struct {
     secret: bool;
     player: Entity;
     player2: *Entity;
-    entities: [..]Entity;
+	score: float;
+    entities: [..] Entity;
 }
 
 Entity :: struct {
@@ -13,32 +14,34 @@ Entity :: struct {
     dirty: bool; @JsonIgnore
 }
 
-typed_parsing :: () {
-    json := #string DONE
-{"secret": false,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}]}
+
+LEVEL_DATA_JSON := #string DONE
+{"secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}]}
 DONE;
 
-    level, success := json_parse_string(json, LevelData, ignore_unknown=false);
-    //level, success := json_parse_file("level.json", LevelData, ignore_unknown=false);
+typed_parsing :: () {
+
+    success, level := json_parse_string(LEVEL_DATA_JSON, LevelData, ignore_unknown=false);
+    // success, level := json_parse_file("level.json", LevelData, ignore_unknown=false);
     assert(success);
 
-    print("typed parsing result:\n%\n\n", level);
+    print("Typed parsing result:\n%\n\n", level);
 }
 
 typed_printing :: () {
-    level := LevelData.{secret=true};
+	level := LevelData.{secret=true, score=500};
     level.player = .{name="Pat", x=4, y=4, dirty=true};
     array_add(*level.entities, .{name="Chris", x=6, y=6});
 
     json_string := json_write_string(level);
-    print("typed printing result:\n%\n\n", json_string);
+    print("Typed printing result:\n%\n\n", json_string);
 
-    //success := json_write_file("level.json", level, indent_char="");
-    //assert(success);
+    // success := json_write_file("level.json", level, indent_char="");
+    // assert(success);
 }
 
 generic_parsing :: () {
-    // In this scenario, some parts of the structure is known, but other parts are not.
+    // In this scenario, some parts of the structure are known, but other parts are not.
 
     json := #string DONE
 {
@@ -60,15 +63,17 @@ generic_parsing :: () {
     "stuff": [null, true, false]
 }
 DONE
-    root, success := json_parse_string(json);
-    //root, success := json_parse_file("level.json");
+
+    success, root := json_parse_string(json);
+    // success, root := json_parse_file("level.json");
     assert(success);
 
-    print("generic parsing result:\n");
+    print("Generic parsing result:\n");
 
     // Print things out, for demonstration purposes
 
-    traverse_node :: (node: JSON_Value) {
+    traverse_node :: (node: JSON_Value, depth: int) {
+		INDENTATION :: 4;
         print("% ", node.type);
 
         if node.type == {
@@ -84,21 +89,25 @@ DONE
         case .OBJECT;
             print("{\n");
             for node.object {
+				for 1..(depth+1)*INDENTATION		print(" ");
                 print("%: ", it_index);
-                traverse_node(it);
+                traverse_node(it, depth+1);
             }
+			for 1..depth*INDENTATION		print(" ");
             print("}\n");
 
         case .ARRAY;
             print("[\n");
             for node.array {
-                traverse_node(it);
+				for 1..(depth+1)*INDENTATION		print(" ");
+                traverse_node(it, depth + 1);
             }
+			for 1..depth*INDENTATION		print(" ");
             print("]\n");
         }
     }
 
-    traverse_node(root);
+    traverse_node(root, 0);
 
     print("\n");
 
@@ -132,14 +141,14 @@ DONE
         y := get(it, "y", .NUMBER).number / 32;
 
         if entity_name == {
-        case "Player";
-            player_index := cast(int) get(it, "player_index", .NUMBER).number;
-            print("Player with player_index=%\n", player_index);
-        case "Snake";
-            snake_color := cast(int) get(it, "snake_color", .NUMBER).number;
-            print("Snake with snake_color=%\n", snake_color);
-        case;
-            //...
+			case "Player";
+				player_index := cast(int) get(it, "player_index", .NUMBER).number;
+				print("Player with player_index=%\n", player_index);
+			case "Snake";
+				snake_color := cast(int) get(it, "snake_color", .NUMBER).number;
+				print("Snake with snake_color=%\n", snake_color);
+			case;
+				//...
         }
     }
 
@@ -159,24 +168,22 @@ generic_printing :: () {
         json_set(*root_obj, "music_index", .{type=.NUMBER, number=3});
     }
 
-    // Create array
-    array := JSON_Value.{type=.ARRAY};
-
-    // Initialize array
-	temp: [..]JSON_Value;
-    array.array = temp;
-
-    // Add things to array
+    // Create an array of values
+	temp: [..] JSON_Value;
     junk := JSON_Value.{type=.STRING, str="junk"};
-    array_add(*array.array, junk);
-    array_add(*array.array, junk);
+    array_add(*temp, junk);
+    array_add(*temp, junk);
+
+    // Create json array value
+    array := JSON_Value.{type=.ARRAY};
+    array.array = temp;
 
     // Add array to object
     json_set(*root_obj, "junk_array", array);
 
     // Print result
     json_string := json_write_string(root);
-    print("generic_printing result:\n%\n\n", json_string);
+    print("Generic_printing result:\n%\n\n", json_string);
 
     //json_write_file("level.json", root);
 }
@@ -184,18 +191,16 @@ generic_printing :: () {
 main :: () {
     Debug.init();
 
-    // Use the temporary allocator so we don't have to worry about individually freeing
-    // all the allocations.
-    new_context := context;
-    new_context.allocator = __temporary_allocator;
-    new_context.allocator_data = null;
-    push_context new_context {
+	{
+		// Use the temporary allocator so we don't have to worry about individually freeing
+		// all the allocations.
+		push_allocator(temp);
 
-        typed_parsing();
-        typed_printing();
-        generic_parsing();
-        generic_printing();
-    }
+		typed_parsing();
+		typed_printing();
+		generic_parsing();
+		generic_printing();
+	}
 
     // Since the program ends here, this doesn't matter, but just setting an example.
     reset_temporary_storage();
