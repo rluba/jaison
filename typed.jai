@@ -276,7 +276,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 		assert(info.relative_pointer_size == 0, "Relative pointers are not yet supported");  // @Incomplete
 
 		element_size = info.element_type.runtime_size;
-		assert(element_size != -1, "Unknown element size");  // @Robustness @Incomplete: Right now, this might fail.
+		assert(element_size != -1, "Unknown element size");
 		stride = get_array_stride(element_size);
 	}
 
@@ -289,8 +289,9 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 		return remainder, true;
 	}
 
+
 	if slot {
-		array := cast(*Resizable_Array) slot;
+		array: Resizable_Array;
 		element_data := alloc(element_size);
 		defer free(element_data);
 
@@ -300,7 +301,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown);
 			if !success	return remainder, false;
 
-			maybe_grow(array, element_size);
+			maybe_grow(*array, element_size);
 			memcpy(array.data + array.count * stride, element_data, stride);
 			array.count += 1;
 
@@ -308,6 +309,13 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			if remainder[0] != #char ","	break;
 			remainder = advance(remainder);
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
+		}
+		if info.array_type == .VIEW {
+			view := (cast(*Array_View_64) slot);
+			view.count = array.count;
+			view.data = array.data;
+		} else {
+			<<(cast(*Resizable_Array) slot) = array;
 		}
 	} else {
 		while true {
