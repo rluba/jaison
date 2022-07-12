@@ -15,17 +15,17 @@ Parsing is as simple as:
 
 ```Jai
 // Typed version:
-result, success := json_parse_string(json_str, Your_Type_To_Parse_Into);
+success, result := json_parse_string(json_str, Your_Type_To_Parse_Into);
 // … or if you want to get a generic structure back:
-result, success := json_parse_string(json_str);
+success, result := json_parse_string(json_str);
 ```
 
 There are also a convenience functions if the JSON data is in a file:
 
 ```Jai
-result, success := json_parse_file(json_filename, Your_Type_To_Parse_Into);
+success, result := json_parse_file(json_filename, Your_Type_To_Parse_Into);
 // … or 
-result := json_parse_file(json_filename);
+success, result := json_parse_file(json_filename);
 ```
 
 See [`typed.jai`](./typed.jai) and [`generic.jai`](./generic.jai) for details and additional options.
