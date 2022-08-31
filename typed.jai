@@ -6,7 +6,7 @@
 json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> success: bool, T {
 	result: T;
 	info := type_info(T);
-	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown);
+	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "");
 	if !success		return false, result;
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -82,14 +82,19 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			append(builder, "]");
 		case .STRUCT;
 			struct_info := cast(*Type_Info_Struct) info;
-			append(builder, #char "{");
-			first := true;
-			json_write_native_members(builder, data, struct_info.members, indent_char, ignore, level, *first);
-			if indent_char.count {
-				append(builder, "\n");
-				for 0..level-1	append(builder, indent_char);
+			if is_generic_json_value(info) {
+				value := cast(*JSON_Value) data;
+				json_write_json_value(builder, <<value, indent_char, level);
+			} else {
+				append(builder, #char "{");
+				first := true;
+				json_write_native_members(builder, data, struct_info.members, indent_char, ignore, level, *first);
+				if indent_char.count {
+					append(builder, "\n");
+					for 0..level-1	append(builder, indent_char);
+				}
+				append(builder, "}");
 			}
-			append(builder, "}");
 		case .POINTER;
 			ptr_info := cast(*Type_Info_Pointer) info;
 			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
@@ -133,11 +138,26 @@ get_array_stride :: (size: s64) -> s64 {
 	return (size + 7) & ~7;
 }
 
-parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool) -> remainder: string, success: bool {
+is_generic_json_value_or_pointer_to_it :: (info: *Type_Info) -> bool {
+	value_info := info;
+	if info.type == .POINTER {
+		pointer_info := cast(*Type_Info_Pointer) info;
+		assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
+		value_info = pointer_info.pointer_to;
+	}
+
+	return is_generic_json_value(info);
+}
+
+is_generic_json_value :: (info: *Type_Info) -> bool {
+	return info == type_info(JSON_Value);
+}
+
+parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string) -> remainder: string, success: bool {
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
 	success := true;
 
-	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, info: *Type_Info {
+	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, is_generic: bool, info: *Type_Info {
 		value_info := info;
 		if info.type == .POINTER {
 			pointer_info := cast(*Type_Info_Pointer) info;
@@ -145,11 +165,13 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			value_info = pointer_info.pointer_to;
 		}
 
+		is_generic := is_generic_json_value(value_info);
+
 		if value_info.type != expected_type {
 			teaser := to_parse;
 			if teaser.count > 50	teaser.count = 50;
 			log_error("Cannot parse % value into type %. Remaining input is: %…", expected_type, <<info, teaser);
-			return null, false, value_info;
+			return null, false, false, value_info;
 		}
 
 		if info.type == .POINTER {
@@ -165,12 +187,13 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				memset(value_slot, 0, value_info.runtime_size);
 			}
 			<<cast(**u8)slot = value_slot;
-			return value_slot, true, value_info;
+			return value_slot, true, is_generic, value_info;
 		} else {
-			return slot, true, value_info;
+			return slot, true, is_generic, value_info;
 		}
 	}
 
+	is_generic: bool;
 	if remainder[0] == {
 		case #char "n";
 			remainder, success = expect_and_slice(remainder, "null");
@@ -178,7 +201,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if slot {
 				// @ToDo, @Incomplete: Handle null properly
 				if info.type != .POINTER {
-					log_error("Got NULL value for non-pointer type %. Assigning default value instead.", <<info);
+					log_error("Got NULL value for non-pointer type % of field \"%\". Assigning default value instead.", <<info, field_name);
 				}
 			}
 			return remainder, true;
@@ -187,9 +210,13 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if !success		return remainder, false;
 			if slot {
 				value_slot: *u8;
-				value_slot, success = prepare_slot(.BOOL, info, slot, to_parse);
+				value_slot, success, is_generic = prepare_slot(.BOOL, info, slot, to_parse);
 				if success {
-					<<cast(*bool)value_slot = true;
+					if is_generic {
+						json_set(cast(*JSON_Value)value_slot, true);
+					} else {
+						<<cast(*bool)value_slot = true;
+					}
 				}
 			}
 		case #char "f";
@@ -197,9 +224,13 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if !success		return remainder, false;
 			if slot {
 				value_slot: *u8;
-				value_slot, success = prepare_slot(.BOOL, info, slot, to_parse);
+				value_slot, success, is_generic = prepare_slot(.BOOL, info, slot, to_parse);
 				if success {
-					<<cast(*bool)value_slot = false;
+					if is_generic {
+						json_set(cast(*JSON_Value)value_slot, false);
+					} else {
+						<<cast(*bool)value_slot = false;
+					}
 				}
 			}
 		case #char "\"";
@@ -209,9 +240,13 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			defer if !stored	free(value);
 			if success && slot {
 				value_slot: *u8;
-				value_slot, success = prepare_slot(.STRING, info, slot, to_parse);
+				value_slot, success, is_generic = prepare_slot(.STRING, info, slot, to_parse);
 				if success {
-					<<cast(*string)value_slot = value;
+					if is_generic {
+						json_set(cast(*JSON_Value)value_slot, value);
+					} else {
+						<<cast(*string)value_slot = value;
+					}
 					stored = true;
 				}
 			}
@@ -219,34 +254,50 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			value_slot: *u8;
 			value_info: *Type_Info;
 			if slot {
-				value_slot, success, value_info = prepare_slot(.ARRAY, info, slot, to_parse);
+				value_slot, success, is_generic, value_info = prepare_slot(.ARRAY, info, slot, to_parse);
 			}
 			if success {
-				remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown);
+				if is_generic {
+					value: [] JSON_Value;
+					value, remainder, success = parse_array(remainder);
+					json_set(cast(*JSON_Value)value_slot, value);
+				} else {
+					remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown);
+				}
 			}
 		case #char "{";
 			value_slot: *u8;
 			value_info: *Type_Info;
 			if slot {
-				value_slot, success, value_info = prepare_slot(.STRUCT, info, slot, to_parse);
+				value_slot, success, is_generic, value_info = prepare_slot(.STRUCT, info, slot, to_parse);
 			}
 			if success {
-				remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown);
+				if is_generic {
+					value := New(JSON_Object);
+					<<value, remainder, success = parse_object(remainder);
+					json_set(cast(*JSON_Value)value_slot, value);
+				} else {
+					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown);
+				}
 			}
 		case;
-			if slot == null || info.type == .FLOAT {
+			if slot == null || info.type == .FLOAT || is_generic_json_value_or_pointer_to_it(info) {
 				float_value: float64;
 				float_value, success, remainder = string_to_float64(remainder);
 				if success && slot {
 					value_slot: *u8;
 					value_info: *Type_Info;
-					value_slot, success, value_info = prepare_slot(.FLOAT, info, slot, to_parse);
+					value_slot, success, is_generic, value_info = prepare_slot(.FLOAT, info, slot, to_parse);
 					if success {
-						if value_info.runtime_size == 4 {
-							(<< cast(*float) slot) = cast(float) float_value;
+						if is_generic {
+							json_set(cast(*JSON_Value)value_slot, float_value);
 						} else {
-							assert(value_info.runtime_size == 8);
-							(<< cast(*float64) slot) = float_value;
+							if value_info.runtime_size == 4 {
+								(<< cast(*float) slot) = cast(float) float_value;
+							} else {
+								assert(value_info.runtime_size == 8);
+								(<< cast(*float64) slot) = float_value;
+							}
 						}
 					}
 				}
@@ -256,10 +307,14 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				if success && slot {
 					value_slot: *u8;
 					value_info: *Type_Info;
-					value_slot, success, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
+					value_slot, success, is_generic, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
 					if success {
-						info_int := cast(*Type_Info_Integer) value_info;
-						success = write_integer(info_int, value_slot, int_value);
+						if is_generic {
+							json_set(cast(*JSON_Value)value_slot, int_value);
+						} else {
+							info_int := cast(*Type_Info_Integer) value_info;
+							success = write_integer(info_int, value_slot, int_value);
+						}
 					}
 				}
 			}
@@ -298,7 +353,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 		while true {
 			memset(element_data, 0, element_size);
 			success: bool;
-			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown);
+			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "");
 			if !success	return remainder, false;
 
 			maybe_grow(*array, element_size);
@@ -320,7 +375,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	} else {
 		while true {
 			success: bool;
-			remainder, success = parse_value(remainder, null, null, ignore_unknown);
+			remainder, success = parse_value(remainder, null, null, ignore_unknown, "");
 			if !success	return remainder, false;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -393,7 +448,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		if remainder[0] != #char ":"	return remainder, false;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown);
+		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key);
 		if !success		return remainder, false;
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);

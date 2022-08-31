@@ -20,7 +20,7 @@ success, result := json_parse_string(json_str, Your_Type_To_Parse_Into);
 success, result := json_parse_string(json_str);
 ```
 
-There are also a convenience functions if the JSON data is in a file:
+There are also a convenience functions for parsing if the JSON data is in a file:
 
 ```Jai
 success, result := json_parse_file(json_filename, Your_Type_To_Parse_Into);
@@ -28,7 +28,20 @@ success, result := json_parse_file(json_filename, Your_Type_To_Parse_Into);
 success, result := json_parse_file(json_filename);
 ```
 
+
 See [`typed.jai`](./typed.jai) and [`generic.jai`](./generic.jai) for details and additional options.
+
+### Mixed typed and generic data
+
+If you don’t know the structure of some subfield of your `Your_Type_To_Parse_Into` structure, but still want to get these values from the JSON data,
+you can declare these fields as the generic type `JSON_Value` or `*JSON_Value` and the generic parse function will take over at that point:
+
+```
+Your_Type_To_Parse_Into :: struct {
+	name: string;
+	age: int;
+	something_we_dont_know_much_about: *JSON_Value; // Whatever structure hides in the JSON, it will be parsed into JSON_Value.
+}
 
 ## Printing / Serialization
 
