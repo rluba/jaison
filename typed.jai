@@ -374,13 +374,15 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		defer free(key);
 
 		member: *Type_Info_Struct_Member;
+		member_offset: s64;
+		if info {
+			member, member_offset = get_field(info, key);
+		}
+
 		member_slot: *u8;
 		member_info: *Type_Info;
-		if info {
-			member = get_field(info, key);
-		}
 		if member {
-			member_slot = slot + member.offset_in_bytes;
+			member_slot = slot + member_offset;
 			member_info = member.type;
 		} else if !ignore_unknown {
 			log_error("Missing member % in %", key, <<info);
