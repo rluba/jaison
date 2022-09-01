@@ -5,6 +5,8 @@
 //@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
 json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> success: bool, T {
 	result: T;
+    if !content then return false, result;
+
 	info := type_info(T);
 	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "");
 	if !success		return false, result;

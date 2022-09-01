@@ -67,6 +67,8 @@ json_parse_file :: (filename: string) -> success: bool, JSON_Value {
 }
 
 json_parse_string :: (content: string) -> success: bool, JSON_Value {
+    if !content then return false, .{};
+
 	result, remainder, success := parse_value(content);
 	if !success		return false, result;
 
