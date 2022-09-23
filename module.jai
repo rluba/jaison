@@ -85,6 +85,10 @@ json_append_escaped :: (builder: *String_Builder, str: string) {
 				append(builder,  "\\\"");
 			case #char "\n";
 				append(builder, "\\n");
+			case #char "\r";
+				append(builder, "\\r");
+			case #char "\t";
+				append(builder, "\\t");
 			case;
 				// ToDo: handle illegal multi-byte characters
 				// print("Escaping: %\n\n", slice(remaining, next_pos, remaining.count - next_pos));
@@ -99,7 +103,7 @@ json_append_escaped :: (builder: *String_Builder, str: string) {
 
 index_of_illegal_string_char :: (str: string) -> s64 {
 	for 0..str.count - 1 {
-		if str[it] == #char "\\" || str[it] == #char "\"" || str[it] == #char "\n" || str[it] <= 0x1F {
+		if str[it] == #char "\\" || str[it] == #char "\"" || str[it] <= 0x1F {
 			return it;
 		}
 	}
