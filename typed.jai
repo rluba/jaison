@@ -24,7 +24,7 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> succe
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
-		log_error("Couldn’t read file: %", filename);
+		log_error("Could not read file: %", filename);
 		return false, result;
 	}
 	defer free(file_data);
