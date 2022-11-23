@@ -56,7 +56,7 @@ json_parse_file :: (filename: string) -> success: bool, JSON_Value {
     file_data, success := read_entire_file(filename);
 	result: JSON_Value;
 	if !success		{
-		log_error("Couldn’t read file");
+		log_error("Could not read file");
 		return false, result;
 	}
 	defer free(file_data);
