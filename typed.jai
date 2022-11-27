@@ -5,7 +5,7 @@
 //@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
 json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> success: bool, T {
 	result: T;
-    if !content then return false, result;
+	if !content then return false, result;
 
 	info := type_info(T);
 	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "");
@@ -46,6 +46,14 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			any_val.type = info;
 			any_val.value_pointer = data;
 			print_item_to_builder(builder, any_val);
+		case .ENUM;
+			any_val: Any;
+			any_val.type = info;
+			any_val.value_pointer = data;
+			
+			append(builder, #char "\"");
+			print_item_to_builder(builder, any_val);
+			append(builder, #char "\"");
 		case .STRING;
 			json_append_escaped(builder, <<(cast(*string) data));
 		case .ARRAY;
@@ -115,6 +123,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
 	for * member: members {
+		if member.type.type == .TYPE	continue;
 		if ignore(member)	continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
@@ -236,20 +245,27 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				}
 			}
 		case #char "\"";
-			value: string;
-			value, remainder, success = parse_string(remainder);
-			stored := false;
-			defer if !stored	free(value);
-			if success && slot {
+			if info.type == .ENUM {
+				info_enum := cast(*Type_Info_Enum)info;
 				value_slot: *u8;
-				value_slot, success, is_generic = prepare_slot(.STRING, info, slot, to_parse);
-				if success {
-					if is_generic {
-						json_set(cast(*JSON_Value)value_slot, value);
-					} else {
-						<<cast(*string)value_slot = value;
+				value_slot, success, is_generic = prepare_slot(.INTEGER, info_enum.internal_type, slot, to_parse);
+				remainder, success = parse_enum(remainder, value_slot, info_enum);
+			} else {
+				value: string;
+				value, remainder, success = parse_string(remainder);
+				stored := false;
+				defer if !stored	free(value);
+				if success && slot {
+					value_slot: *u8;
+					value_slot, success, is_generic = prepare_slot(.STRING, info, slot, to_parse);
+					if success {
+						if is_generic {
+							json_set(cast(*JSON_Value)value_slot, value);
+						} else {
+							<<cast(*string)value_slot = value;
+						}
+						stored = true;
 					}
-					stored = true;
 				}
 			}
 		case #char "[";
@@ -320,6 +336,65 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					}
 				}
 			}
+	}
+	
+	return remainder, success;
+}
+
+parse_enum :: (str : string, slot: *u8, info_enum: *Type_Info_Enum) -> remainder: string, success: bool {
+
+	value, remainder, success := parse_string(str);
+	defer free(value);
+	
+	// Try to parse as int
+	int_value: s64;
+	int_remainder: string;
+	int_value, success, int_remainder = to_integer(value);
+	
+	if success && int_remainder.count == 0 {
+		success = write_integer(info_enum.internal_type, slot, int_value);
+		return remainder, success;
+	}
+	
+	// Parse by members' names
+	normalize_enum_value :: inline (name : string) -> string #expand {
+		normalized := trim(name);
+		if starts_with(normalized, tprint("%.", info_enum.name))
+			normalized = slice(normalized, info_enum.name.count+1, normalized.count-info_enum.name.count-1);
+		if starts_with(normalized, ".")
+			normalized = slice(normalized, 1, normalized.count-1);
+		return normalized;
+	}
+	
+	if info_enum.enum_type_flags & .FLAGS {
+		parsed_count := 0;
+		values := split(value, "|");
+		
+		for v : values {
+			name := normalize_enum_value(v);
+			for info_enum.names {
+				if name == it {
+					parsed_count += 1;
+					int_value |= info_enum.values[it_index];
+					break;
+				}
+			}
+		}
+		if parsed_count == values.count {
+			success = write_integer(info_enum.internal_type, slot, int_value);
+		} else {
+			success = false;
+		}
+	} else {
+		success = false;
+		name := normalize_enum_value(value);
+		for info_enum.names {
+			if name == it {
+				int_value := info_enum.values[it_index];
+				success = write_integer(info_enum.internal_type, slot, int_value);
+				break;
+			}
+		}
 	}
 
 	return remainder, success;

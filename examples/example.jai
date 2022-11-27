@@ -1,11 +1,26 @@
 
 // Data structures for typed parsing/printing
 LevelData :: struct {
+    kind : LevelKind;
+    flags : LevelFlags;
     secret: bool;
     player: Entity;
     player2: *Entity;
-	score: float;
+    score: float;
     entities: [..] Entity;
+    
+    
+    LevelKind :: enum {
+        EASY :: 0;
+        HARD :: 1;
+        LEGENDARY :: 2;
+    }
+
+    LevelFlags :: enum_flags {
+        FLAG_A :: 0x1;
+        FLAG_B :: 0x2;
+        FLAG_C :: 0x4;
+    }
 }
 
 Entity :: struct {
@@ -16,7 +31,7 @@ Entity :: struct {
 
 
 LEVEL_DATA_JSON := #string DONE
-{"secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}]}
+{"kind" : ".HARD", "flags" : ".FLAG_A | .FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}]}
 DONE;
 
 typed_parsing :: () {
@@ -29,13 +44,13 @@ typed_parsing :: () {
 }
 
 typed_printing :: () {
-	level := LevelData.{secret=true, score=500};
+    level := LevelData.{kind=.LEGENDARY, /*flags=LevelData.LevelFlags.FLAG_B|.FLAG_C,*/secret=true, score=500};
     level.player = .{name="Pat", x=4, y=4, dirty=true};
     array_add(*level.entities, .{name="Chris", x=6, y=6});
 
     json_string := json_write_string(level);
     print("Typed printing result:\n%\n\n", json_string);
-
+    
     // success := json_write_file("level.json", level, indent_char="");
     // assert(success);
 }
@@ -73,7 +88,7 @@ DONE
     // Print things out, for demonstration purposes
 
     traverse_node :: (node: JSON_Value, depth: int) {
-		INDENTATION :: 4;
+        INDENTATION :: 4;
         print("% ", node.type);
 
         if node.type == {
@@ -198,8 +213,8 @@ main :: () {
 
 		typed_parsing();
 		typed_printing();
-		generic_parsing();
-		generic_printing();
+		//generic_parsing();
+		//generic_printing();
 	}
 
     // Since the program ends here, this doesn't matter, but just setting an example.
