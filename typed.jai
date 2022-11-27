@@ -245,7 +245,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				}
 			}
 		case #char "\"";
-			if info.type == .ENUM {
+			if slot && info && info.type == .ENUM {
 				info_enum := cast(*Type_Info_Enum)info;
 				value_slot: *u8;
 				value_slot, success, is_generic = prepare_slot(.INTEGER, info_enum.internal_type, slot, to_parse);
