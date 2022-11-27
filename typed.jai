@@ -124,7 +124,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
 	for * member: members {
 		if member.type.type == .TYPE	continue;
-		if ignore(member)	continue;
+		if ignore(member)				continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
 			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, level, first);
@@ -390,7 +390,7 @@ parse_enum :: (str : string, slot: *u8, info_enum: *Type_Info_Enum) -> remainder
 		name := normalize_enum_value(value);
 		for info_enum.names {
 			if name == it {
-				int_value := info_enum.values[it_index];
+				int_value = info_enum.values[it_index];
 				success = write_integer(info_enum.internal_type, slot, int_value);
 				break;
 			}
