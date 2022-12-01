@@ -216,7 +216,7 @@ json_set :: (obj: *JSON_Object, path: string, val: JSON_Value) -> bool {
 	if !next.count		return false;
 	if !remainder.count	return false;
 
-	next_value, success := table_find(<<obj, next);
+	next_value, success := table_find(obj, next);
 	next_obj: *JSON_Object;
 	if success {
 		if next_value.type != JSON_Type.OBJECT	return false;
