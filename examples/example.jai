@@ -9,7 +9,6 @@ LevelData :: struct {
     score: float;
     entities: [..] Entity;
     
-    
     LevelKind :: enum {
         EASY :: 0;
         HARD :: 1;
@@ -131,7 +130,7 @@ DONE
     // Convenience function for grabbing object members
     get :: (json_val: JSON_Value, key: string, expected_type: JSON_Type) -> JSON_Value {
         assert(json_val.type == .OBJECT);
-        table := <<json_val.object;
+        table := json_val.object;
         val, success := Hash_Table.table_find(table, key);
         assert(success);
         assert(val.type == expected_type);
@@ -141,7 +140,7 @@ DONE
     // Check for version number that may or may not exist
     version: float64 = -1;
     assert(root.type == .OBJECT);
-    val, success2 := Hash_Table.table_find(<<root.object, "version");
+    val, success2 := Hash_Table.table_find(root.object, "version");
     if success2 {
         if val.type == .NUMBER {
             version = val.number;
