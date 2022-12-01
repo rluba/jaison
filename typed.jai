@@ -123,8 +123,8 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
 	for * member: members {
-		if member.type.type == .TYPE	continue;
-		if ignore(member)				continue;
+        if member.flags & .CONSTANT     continue;
+		if ignore(member)               continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
 			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, level, first);
