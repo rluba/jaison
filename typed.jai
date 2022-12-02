@@ -123,7 +123,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
 	for * member: members {
-        if member.flags & .CONSTANT     continue;
+		if member.flags & .CONSTANT     continue;
 		if ignore(member)               continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
@@ -428,7 +428,17 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 		defer free(element_data);
 
 		while true {
-			memset(element_data, 0, element_size);
+			initializer: (*void);
+			if info.element_type.type == .STRUCT {
+				struct_info := cast(*Type_Info_Struct) info.element_type;
+				initializer = struct_info.initializer;
+			}
+			if initializer {
+				initializer(element_data);
+			} else {
+				memset(element_data, 0, element_size);
+			}
+			
 			success: bool;
 			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "");
 			if !success	return remainder, false;
