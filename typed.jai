@@ -145,8 +145,7 @@ json_write_native_members :: (builder: *String_Builder, data: *void, members: []
 }
 
 get_array_stride :: (size: s64) -> s64 {
-	// @Robustness: We assume 8-byte alignment for now.
-	return (size + 7) & ~7;
+    return size; // @Incomplete: Is this always correct?
 }
 
 is_generic_json_value_or_pointer_to_it :: (info: *Type_Info) -> bool {

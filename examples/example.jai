@@ -8,6 +8,8 @@ LevelData :: struct {
     player2: *Entity;
     score: float;
     entities: [..] Entity;
+
+    floats: [..] float;
     
     LevelKind :: enum {
         EASY :: 0;
@@ -30,7 +32,7 @@ Entity :: struct {
 
 
 LEVEL_DATA_JSON := #string DONE
-{"kind" : ".HARD", "flags" : ".FLAG_A | .FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}]}
+{"kind" : ".HARD", "flags" : ".FLAG_A | .FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}], "floats": [0.00, 1.11111111111111111, 2.0202, 3e-5, 4.444444, -5.0]}
 DONE;
 
 typed_parsing :: () {
@@ -38,6 +40,9 @@ typed_parsing :: () {
     success, level := json_parse_string(LEVEL_DATA_JSON, LevelData, ignore_unknown=false);
     // success, level := json_parse_file("level.json", LevelData, ignore_unknown=false);
     assert(success);
+
+    assert(level.floats.count == 6);
+    assert(level.floats[1] > 1);  // Regression test, we had a bug here…
 
     print("Typed parsing result:\n%\n\n", level);
 }
@@ -220,8 +225,9 @@ main :: () {
     reset_temporary_storage();
 }
 
-#load "../module.jai"; // In your code, you should do an #import instead of a #load (possibly using Compiler.Build_Options.modules_search_path_array)
+#import, file "../module.jai"; 
 
 #import "Basic";
+#import "Hash_Table"; // To be able to iterate over node.object
 Debug :: #import "Debug";
 Hash_Table :: #import "Hash_Table";
