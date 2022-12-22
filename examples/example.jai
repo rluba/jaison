@@ -1,19 +1,19 @@
 
 // Data structures for typed parsing/printing
 LevelData :: struct {
-    kind : LevelKind;
-    flags : LevelFlags;
-    secret: bool;
-    player: Entity;
-    player2: *Entity;
-    score: float;
+    kind:     LevelKind;
+    flags:    LevelFlags;
+    secret:   bool;
+    player:   Entity;
+    player2:  *Entity;
+    score:    float;
     entities: [..] Entity;
 
-    floats: [..] float;
+    floats:   [..] float;
     
     LevelKind :: enum {
-        EASY :: 0;
-        HARD :: 1;
+        EASY      :: 0;
+        HARD      :: 1;
         LEGENDARY :: 2;
     }
 
@@ -31,20 +31,33 @@ Entity :: struct {
 }
 
 
-LEVEL_DATA_JSON := #string DONE
-{"kind" : ".HARD", "flags" : ".FLAG_A | .FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}], "floats": [0.00, 1.11111111111111111, 2.0202, 3e-5, 4.444444, -5.0]}
+LEVEL_DATA_1_JSON := #string DONE
+{"kind": ".HARD", "flags": ".FLAG_A | .FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}], "floats": [0.00, 1.11111111111111111, 2.0202, 3e-5, 4.444444, -5.0]}
+DONE;
+
+LEVEL_DATA_2_JSON := #string DONE
+{"kind": 2}
 DONE;
 
 typed_parsing :: () {
+    {
+        success, level := json_parse_string(LEVEL_DATA_1_JSON, LevelData, ignore_unknown=false);
+        // success, level := json_parse_file("level.json", LevelData, ignore_unknown=false);
+        assert(success);
 
-    success, level := json_parse_string(LEVEL_DATA_JSON, LevelData, ignore_unknown=false);
-    // success, level := json_parse_file("level.json", LevelData, ignore_unknown=false);
-    assert(success);
+        print("Typed parsing result 1:\n%\n\n", level);
+        assert(level.floats.count == 6);
+        assert(level.floats[1] > 1);  // Regression test, we had a bug here…
+    }
+    {
+        // Test parsing integers into enum slots
+        success, level := json_parse_string(LEVEL_DATA_2_JSON, LevelData, ignore_unknown=false);
+        assert(success);
 
-    assert(level.floats.count == 6);
-    assert(level.floats[1] > 1);  // Regression test, we had a bug here…
+        print("Typed parsing result 2:\n%\n\n", level);
 
-    print("Typed parsing result:\n%\n\n", level);
+        assert(level.kind == .LEGENDARY);
+    }
 }
 
 typed_printing :: () {

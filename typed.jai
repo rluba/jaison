@@ -175,6 +175,11 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			value_info = pointer_info.pointer_to;
 		}
 
+        if info.type == .ENUM {
+            info_enum := cast(*Type_Info_Enum)info;
+            value_info = info_enum.internal_type;
+        }
+
 		is_generic := is_generic_json_value(value_info);
 
 		if value_info.type != expected_type {
@@ -248,7 +253,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				info_enum := cast(*Type_Info_Enum)info;
 				value_slot: *u8;
 				value_slot, success, is_generic = prepare_slot(.INTEGER, info_enum.internal_type, slot, to_parse);
-				remainder, success = parse_enum(remainder, value_slot, info_enum);
+				remainder, success = parse_enum_string(remainder, value_slot, info_enum);
 			} else {
 				value: string;
 				value, remainder, success = parse_string(remainder);
@@ -319,84 +324,102 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					}
 				}
 			} else {
-				int_value: s64;
-				int_value, success, remainder = to_integer(remainder);
-				if success && slot {
-					value_slot: *u8;
-					value_info: *Type_Info;
-					value_slot, success, is_generic, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
-					if success {
-						if is_generic {
-							json_set(cast(*JSON_Value)value_slot, int_value);
-						} else {
-							info_int := cast(*Type_Info_Integer) value_info;
-							success = write_integer(info_int, value_slot, int_value);
-						}
-					}
-				}
+                if slot {
+                    value_slot: *u8;
+                    value_info: *Type_Info;
+                    value_slot, success, is_generic, value_info = prepare_slot(.INTEGER, info, slot, to_parse);
+                    if success {
+                        if is_generic {
+                            int_value: s64;
+                            int_value, success, remainder = string_to_int(remainder, T = s64);
+                            if success {
+                                json_set(cast(*JSON_Value)value_slot, int_value);
+                            } else {
+                                log_error("Could not parse \"%\" as an integer.", to_parse);
+                            }
+                        } else {
+                            info_int := cast(*Type_Info_Integer) value_info;
+                            success, remainder = parse_and_write_integer(info_int, value_slot, to_parse);
+                        }
+                    }
+                } else {
+                    int_value: s64;
+                    int_value, success, remainder = string_to_int(remainder, T = s64);
+                    if !success {
+                        log_error("Could not parse \"%\" as an integer.", to_parse);
+                    }
+                }
 			}
 	}
 	
 	return remainder, success;
 }
 
-parse_enum :: (str : string, slot: *u8, info_enum: *Type_Info_Enum) -> remainder: string, success: bool {
-
+parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> remainder: string, success: bool {
 	value, remainder, success := parse_string(str);
 	defer free(value);
-	
-	// Try to parse as int
-	int_value: s64;
-	int_remainder: string;
-	int_value, success, int_remainder = to_integer(value);
-	
-	if success && int_remainder.count == 0 {
-		success = write_integer(info_enum.internal_type, slot, int_value);
-		return remainder, success;
-	}
-	
-	// Parse by members' names
-	normalize_enum_value :: inline (name : string) -> string #expand {
-		normalized := trim(name);
-		if starts_with(normalized, tprint("%.", info_enum.name))
-			normalized = slice(normalized, info_enum.name.count+1, normalized.count-info_enum.name.count-1);
-		if starts_with(normalized, ".")
-			normalized = slice(normalized, 1, normalized.count-1);
-		return normalized;
-	}
-	
-	if info_enum.enum_type_flags & .FLAGS {
-		parsed_count := 0;
-		values := split(value, "|");
-		
-		for v : values {
-			name := normalize_enum_value(v);
-			for info_enum.names {
-				if name == it {
-					parsed_count += 1;
-					int_value |= info_enum.values[it_index];
-					break;
-				}
-			}
-		}
-		if parsed_count == values.count {
-			success = write_integer(info_enum.internal_type, slot, int_value);
-		} else {
-			success = false;
-		}
-	} else {
-		success = false;
-		name := normalize_enum_value(value);
-		for info_enum.names {
-			if name == it {
-				int_value = info_enum.values[it_index];
-				success = write_integer(info_enum.internal_type, slot, int_value);
-				break;
-			}
-		}
-	}
+    if !success return remainder, false;
 
-	return remainder, success;
+    // Parse by members' names
+    normalize_enum_value :: inline (name: string) -> string #expand {
+        normalized := trim(name);
+        // @Speed, @Cleanup: Why are we tprinting this every time? We could just use the name directly and then check for the dot.
+        if starts_with(normalized, tprint("%.", info_enum.name))
+            normalized = slice(normalized, info_enum.name.count+1, normalized.count-info_enum.name.count-1);
+        if starts_with(normalized, ".")
+            normalized = slice(normalized, 1, normalized.count-1);
+        return normalized;
+    }
+        
+    int_info := info_enum.internal_type;
+    int_value: s64;
+    if info_enum.enum_type_flags & .FLAGS {
+        parsed_count := 0;
+        values := split(value, "|");
+        
+        for v: values {
+            name := normalize_enum_value(v);
+            for info_enum.names {
+                if name == it {
+                    parsed_count += 1;
+                    int_value |= info_enum.values[it_index];
+                    break;
+                }
+            }
+        }
+
+        if parsed_count != values.count {
+            success = false;
+        }
+    } else {
+        success = false;
+        name := normalize_enum_value(value);
+        for info_enum.names {
+            if name == it {
+                int_value = info_enum.values[it_index];
+                success = true;
+                break;
+            }
+        }
+    }
+
+    if success {
+        if int_info.signed {
+            valid, low, high := Reflection.range_check_and_store(int_value, int_info, slot);
+            if !valid {
+                log_error("The value '%' is out of range. (It must be between % and %.)", int_value, low, high);
+                return remainder, false;
+            }
+        } else {
+            valid, low, high := Reflection.range_check_and_store(cast(u64) int_value, int_info, slot);
+            if !valid {
+                log_error("The value '%' is out of range. (It must be between % and %.)", int_value, low, high);
+                return remainder, false;
+            }
+        }
+    }
+
+    return remainder, success;
 }
 
 parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool) -> remainder: string, success: bool {
