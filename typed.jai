@@ -331,7 +331,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
                     if success {
                         if is_generic {
                             int_value: s64;
-                            int_value, success, remainder = string_to_int(remainder, T = s64);
+                            int_value, success, remainder = string_to_int(remainder);
                             if success {
                                 json_set(cast(*JSON_Value)value_slot, int_value);
                             } else {
@@ -344,7 +344,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
                     }
                 } else {
                     int_value: s64;
-                    int_value, success, remainder = string_to_int(remainder, T = s64);
+                    int_value, success, remainder = string_to_int(remainder);
                     if !success {
                         log_error("Could not parse \"%\" as an integer.", to_parse);
                     }
@@ -405,13 +405,13 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
 
     if success {
         if int_info.signed {
-            valid, low, high := Reflection.range_check_and_store(int_value, int_info, slot);
+            valid, low, high := range_check_and_store(int_value, int_info, slot);
             if !valid {
                 log_error("The value '%' is out of range. (It must be between % and %.)", int_value, low, high);
                 return remainder, false;
             }
         } else {
-            valid, low, high := Reflection.range_check_and_store(cast(u64) int_value, int_info, slot);
+            valid, low, high := range_check_and_store(cast(u64) int_value, int_info, slot);
             if !valid {
                 log_error("The value '%' is out of range. (It must be between % and %.)", int_value, low, high);
                 return remainder, false;
@@ -588,7 +588,7 @@ parse_and_write_integer :: (info: *Type_Info_Integer, pointer: *void, string_val
         Int_Type :: u64;
     }
 
-    int_value, int_success, remainder := string_to_int(string_value, T = Int_Type);
+    int_value, int_success, remainder := string_to_int(string_value);
     if !int_success {
         #if signed {
             log_error("Could not parse \"%\" as an integer.", string_value);
@@ -598,7 +598,7 @@ parse_and_write_integer :: (info: *Type_Info_Integer, pointer: *void, string_val
         return false, remainder;
     }
     
-    valid, low, high := Reflection.range_check_and_store(int_value, info, pointer);
+    valid, low, high := range_check_and_store(int_value, info, pointer);
 
     if !valid {
         log_error("The value '%' is out of range. (It must be between % and %.)", int_value, low, high);
@@ -608,4 +608,62 @@ parse_and_write_integer :: (info: *Type_Info_Integer, pointer: *void, string_val
     return true, remainder;
 }
 
-Reflection :: #import "Reflection";
+#scope_file;
+
+range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -> (success: bool, low: T, high: T) {
+	#assert((T == u64) || (T == s64));
+
+	size := info.runtime_size;
+
+	#if T == u64 {
+		low, high := unsigned_integer_range_from_size(size);
+		if (value < low) || (value > high)  return false, low, high;
+
+		store(pointer, value, size);
+		return true, low, high;
+	} else {
+		low, high := signed_integer_range_from_size(size);
+		if (value < low) || (value > high)  return false, low, high;
+
+		store(pointer, value, size);
+		return true, low, high;
+	}
+
+	store :: (pointer: *void, value: T, size: int) {
+		if size == {
+			case 1;
+			<< cast(*s8)  pointer = xx,no_check value;
+			case 2;
+			<< cast(*s16) pointer = xx,no_check value;
+			case 4;
+			<< cast(*s32) pointer = xx,no_check value;
+			case 8;
+			<< cast(*s64) pointer = xx,no_check value;
+			case;
+			assert(false);
+		}
+	}
+}
+
+signed_integer_range_from_size :: (size_in_bytes: int) -> (low: s64, high: s64) {
+    assert((size_in_bytes == 1) || (size_in_bytes == 2) || (size_in_bytes == 4) || (size_in_bytes == 8));
+
+    high := (1 << (size_in_bytes*8-1)) - 1;
+    low  := ~high;
+
+    return low, high;
+}
+
+unsigned_integer_range_from_size :: (size_in_bytes: int) -> (low: u64, high: u64) {
+    assert((size_in_bytes == 1) || (size_in_bytes == 2) || (size_in_bytes == 4) || (size_in_bytes == 8));
+
+    high: u64 = ---;
+    if size_in_bytes == 8 {
+        high = cast(u64) 0xffff_ffff_ffff_ffff;  // Hardcode 8 to prevent unpredictable behavior due to platform-specific details. In the future the outcome of << will be language-defined in all cases.
+    } else {
+        high = cast(u64) (1 << (size_in_bytes*8)) - 1;  // @CompilerBug: Why do we need to cast the 1? That is dumb.
+    }
+
+    return 0, high;
+}
+
