@@ -446,15 +446,16 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 
 	if slot {
 		array: Resizable_Array;
-		element_data := alloc(element_size);
-		defer free(element_data);
+
+        initializer: (*void);
+        if info.element_type.type == .STRUCT {
+            struct_info := cast(*Type_Info_Struct) info.element_type;
+            initializer = struct_info.initializer;
+        }
 
 		while true {
-			initializer: (*void);
-			if info.element_type.type == .STRUCT {
-				struct_info := cast(*Type_Info_Struct) info.element_type;
-				initializer = struct_info.initializer;
-			}
+			maybe_grow(*array, element_size);
+            element_data := array.data + array.count * stride;
 			if initializer {
 				initializer(element_data);
 			} else {
@@ -465,8 +466,6 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "");
 			if !success	return remainder, false;
 
-			maybe_grow(*array, element_size);
-			memcpy(array.data + array.count * stride, element_data, stride);
 			array.count += 1;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -497,26 +496,6 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	if remainder[0] != #char "]"	return remainder, false;
 	remainder = advance(remainder);
 	return remainder, true;
-}
-
-maybe_grow :: (array: *Resizable_Array, element_size: s64) {
-	if array.count >= array.allocated {
-		reserve := 2 * array.allocated;
-		if reserve < 8  reserve = 8;
-
-		if !array.allocator.proc {
-			if context.allocator.proc {
-				array.allocator      = context.allocator;
-			} else {
-				array.allocator      = context.default_allocator;
-			}
-		}
-
-		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size, array.allocator);
-		assert(array.data != null); // Program will die if we couldn't get memory. We can think about an alternative strategy, but it's hard to know what would be reasonable.
-
-		array.allocated = reserve;
-	}
 }
 
 parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool) -> remainder: string, success: bool {
