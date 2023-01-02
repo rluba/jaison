@@ -4,26 +4,28 @@
 // "indent_char" does what it says on the tin.
 // "ignore" is only used for custom types to determine which properties of your custom type should be serialized.
 //		The default ignore function ignores all struct members that have the note @JsonIgnore.
-json_write_string :: (value: $T, indent_char := "\t", ignore := ignore_by_note) -> string {
+// "rename" is used for renaming certain members. 
+// 		The default procedure rename members by their @JsonName note. Eg: @JsonName(renamed_member).
+json_write_string :: (value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note) -> string {
 	builder: String_Builder;
 	defer free_buffers(*builder);
-	json_append_value(*builder, value, indent_char, ignore);
+	json_append_value(*builder, value, indent_char, ignore, rename);
 	return builder_to_string(*builder);
 }
 
-json_write_file :: (filename: string, value: $T, indent_char := "\t", ignore := ignore_by_note) -> bool {
+json_write_file :: (filename: string, value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note) -> bool {
 	builder: String_Builder;
 	defer free_buffers(*builder);
-	json_append_value(*builder, value, indent_char, ignore);
+	json_append_value(*builder, value, indent_char, ignore, rename);
 	return write_entire_file(filename, builder);
 }
 
-json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ignore := ignore_by_note) {
+json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note) {
 	#if T == JSON_Value {
 		json_write_json_value(builder, val, indent_char);
 	} else {
 		info := type_info(T);
-		json_write_native(builder, *val, info, indent_char, ignore);
+		json_write_native(builder, *val, info, indent_char, ignore, rename);
 	}
 }
 
@@ -63,6 +65,16 @@ ignore_by_note :: (member: *Type_Info_Struct_Member) -> bool {
 		if note == "JsonIgnore"	return true;
 	}
 	return false;
+}
+
+rename_by_note :: (member: *Type_Info_Struct_Member) -> string {
+	for note: member.notes {
+		if !contains(note, "JsonName(") continue;
+		if note[note.count-1] != #char ")" continue;
+		return slice(note, 9, note.count-10);	
+	}
+
+	return "";
 }
 
 #scope_module
