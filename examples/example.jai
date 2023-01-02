@@ -220,6 +220,57 @@ generic_printing :: () {
     //json_write_file("level.json", root);
 }
 
+rename_by_note :: () {
+    // Sometimes the JSON we are parsing contains members with names we cannot use or don´t wanna.
+
+    Message :: struct {
+        value: string;
+        _context: struct { // We cannot use "context" because it´s a reserved keyword in Jai.
+            channel: int;
+            parent: int;
+        } @JsonName(context) // This member in JSON is "context" but we need to have it as "_context". So we can use the JsonName note to encode and decode it as "context".
+    }
+
+    json := #string DONE
+{
+    "value": "Hello!",
+    "context": {
+        "channel": 1,
+        "parent": 897820
+    }
+}
+DONE
+
+    success, message_decoded := json_parse_string(json, Message);
+    assert(success);
+
+    print("Rename_by_note decode result:\n%\n\n", message_decoded);
+
+    message_encoded := json_write_string(message_decoded);
+    assert(message_encoded.count != 0);
+
+    print("Rename_by_note encode result:\n%\n\n", message_encoded);
+}
+
+custom_rename_procedure :: () {
+    // We can also pass a custom rename procedure for renaming certain members.
+
+    rename_to_upper :: (member: *Type_Info_Struct_Member) -> string {
+        return to_upper_copy(member.name);      
+    }
+
+    player := Entity.{
+        name="Player",
+        x = 10,
+        y = 50
+    };
+
+    player_encoded := json_write_string(player, rename=rename_to_upper);
+    assert(player_encoded.count != 0);
+
+    print("Custom_rename_procedure result:\n%\n\n", player_encoded);
+}
+
 main :: () {
     Debug.init();
 
@@ -232,6 +283,8 @@ main :: () {
 		typed_printing();
 		generic_parsing();
 		generic_printing();
+        rename_by_note();
+        custom_rename_procedure();
 	}
 
     // Since the program ends here, this doesn't matter, but just setting an example.
@@ -242,5 +295,7 @@ main :: () {
 
 #import "Basic";
 #import "Hash_Table"; // To be able to iterate over node.object
+#import "String"; // For to_upper_copy
+#import "Compiler"; // For Type_Info_Struct_Member
 Debug :: #import "Debug";
 Hash_Table :: #import "Hash_Table";
