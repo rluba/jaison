@@ -511,41 +511,50 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		return remainder, true;
 	}
 
-	rename_table: Table(string, string);
-	init(*rename_table);	
-	defer deinit(*rename_table);
+	member_table: Table(string, *Type_Info_Struct_Member);
+	init(*member_table);	
+	defer deinit(*member_table);
 
-	if info {
+	// This procedure is somewhat copied from Basic.get_field.
+	fill_member_table :: (table: *type_of(member_table), info: *Type_Info_Struct, rename := rename_by_note) {
+		// First pass: Don't try recursing.
 		for * member: info.members {
+			if member.name.count == 0 continue;
+
 			renamed := rename(member);
-			if renamed.count == 0 continue;
-			table_set(*rename_table, renamed, member.name);
+			if renamed.count == 0 {
+				table_set(table, member.name, member);
+				continue;
+			}
+
+			table_set(table, renamed, member);
+		}
+
+		// Second pass: See if we can get something recursively.
+		for * info.members {
+        	if (it.flags & .USING) && (it.type.type == .STRUCT) {
+				fill_member_table(table, cast(*Type_Info_Struct)it.type, rename);
+			}
 		}
 	}
+
+	if info fill_member_table(*member_table, info, rename);
 
 	while true {
 		if remainder[0] != #char "\""	return remainder, false;
 
-		original_key: string;
+		key: string;
 		success: bool;
-		original_key, remainder, success = parse_string(remainder);
+		key, remainder, success = parse_string(remainder);
 		if !success		return remainder, false;
-		defer free(original_key);
+		defer free(key);
 
-		renamed_key, renamed := table_find(*rename_table, original_key);
-		
-		key := ifx renamed renamed_key else original_key;
-
-		member: *Type_Info_Struct_Member;
-		member_offset: s64;
-		if info {
-			member, member_offset = get_field(info, key);
-		}
+		member, member_found := table_find(*member_table, key); 
 
 		member_slot: *u8;
 		member_info: *Type_Info;
-		if member {
-			member_slot = slot + member_offset;
+		if member_found {
+			member_slot = slot + member.offset_in_bytes;
 			member_info = member.type;
 		} else if !ignore_unknown {
 			log_error("Missing member % in %", key, <<info);
