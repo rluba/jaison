@@ -197,11 +197,39 @@ unescape :: (str: string) -> result: string, success: bool {
 	return result, true;
 }
 
+next_power_of_two :: inline (v: int) -> int {
+    ASM :: true;
+    #if ASM {
+        result: s64 = ---;
+        v -= 1;
+        // count leading zeros
+        #asm {
+            lzcnt result, v;
+        }
+        return 1 << (64 - result);
+    } else {
+        p := 1;
+        while p < v {
+            p += p;
+        }
+        return p;
+    }
+}
+
+maybe_grow :: inline (array: *Resizable_Array, elements: int) {
+    if array.count + elements >= array.allocated {
+        reserve := next_power_of_two(array.count + elements);
+        if reserve < 8  reserve = 8;
+
+        array_reserve(cast(*[..] u8) array, reserve);
+    }
+}
+
 #import "Basic";
 #import "File";
 #import "String";
 
 #import "Hash_Table";
-#import "unicode_utils";
+#import "jai-unicode";
 #import "IntroSort";
 
