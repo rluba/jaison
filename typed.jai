@@ -50,7 +50,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			any_val: Any;
 			any_val.type = info;
 			any_val.value_pointer = data;
-			
+
 			append(builder, #char "\"");
 			print_item_to_builder(builder, any_val);
 			append(builder, #char "\"");
@@ -351,7 +351,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
                 }
 			}
 	}
-	
+
 	return remainder, success;
 }
 
@@ -370,13 +370,13 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
             normalized = slice(normalized, 1, normalized.count-1);
         return normalized;
     }
-        
+
     int_info := info_enum.internal_type;
     int_value: s64;
     if info_enum.enum_type_flags & .FLAGS {
         parsed_count := 0;
         values := split(value, "|");
-        
+
         for v: values {
             name := normalize_enum_value(v);
             for info_enum.names {
@@ -454,14 +454,14 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
         }
 
 		while true {
-			maybe_grow(*array, element_size);
+			Reflection.maybe_grow(*array, element_size);
             element_data := array.data + array.count * stride;
 			if initializer {
 				initializer(element_data);
 			} else {
 				memset(element_data, 0, element_size);
 			}
-			
+
 			success: bool;
 			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "");
 			if !success	return remainder, false;
@@ -576,14 +576,14 @@ parse_and_write_integer :: (info: *Type_Info_Integer, pointer: *void, string_val
         }
         return false, remainder;
     }
-    
+
     valid, low, high := Reflection.range_check_and_store(int_value, info, pointer);
 
     if !valid {
         log_error("The value '%' is out of range. (It must be between % and %.)", int_value, low, high);
         return false, remainder;
     }
-    
+
     return true, remainder;
 }
 
