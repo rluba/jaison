@@ -10,7 +10,7 @@ LevelData :: struct {
     entities: [..] Entity;
 
     floats:   [..] float;
-    
+
     LevelKind :: enum {
         EASY      :: 0;
         HARD      :: 1;
@@ -220,6 +220,94 @@ generic_printing :: () {
     //json_write_file("level.json", root);
 }
 
+rename_by_note :: () {
+    // Sometimes the JSON we are parsing contains members with names we cannot use or don´t wanna.
+
+    Message :: struct {
+        value: string;
+        _context: struct { // We cannot use "context" because it´s a reserved keyword in Jai.
+            channel: int;
+            parent: int;
+        } @JsonName(context) // This member in JSON is "context" but we need to have it as "_context". So we can use the JsonName note to encode and decode it as "context".
+    }
+
+    json := #string DONE
+    {
+        "value": "Hello!",
+        "context": {
+            "channel": 1,
+            "parent": 897820
+        }
+    }
+    DONE
+
+    success, message_decoded := json_parse_string(json, Message, ignore_unknown = false);
+    assert(success);
+
+    print("Rename_by_note decode result:\n%\n\n", message_decoded);
+    assert(message_decoded._context.channel == 1);
+
+
+    message_encoded := json_write_string(message_decoded);
+    print("Rename_by_note encode result:\n%\n\n", message_encoded);
+
+    assert(message_encoded.count != 0);
+    assert(find_index_from_left(message_encoded, "_context") == -1);
+}
+
+custom_rename_procedure :: () {
+    // We can also pass a custom rename procedure for renaming certain members.
+
+    rename_to_upper :: (member: *Type_Info_Struct_Member) -> string {
+        return to_upper_copy(member.name);
+    }
+
+    player := Entity.{
+        name="Player",
+        x = 10,
+        y = 50
+    };
+
+    player_encoded := json_write_string(player, rename=rename_to_upper);
+    assert(player_encoded.count != 0);
+
+    print("encoded with rename_to_upper:\n%\n\n", player_encoded);
+    assert(find_index_from_left(player_encoded, "name") == -1);
+    assert(find_index_from_left(player_encoded, "NAME") != -1);
+
+    success, player_decoded := json_parse_string(player_encoded, Entity, ignore_unknown = false, rename = rename_to_upper);
+    assert(success);
+    print("decoded with rename_to_upper:\n%\n\n", player_decoded);
+    assert(player_decoded.name == "Player");
+}
+
+decode_into_struct_with_using :: () {
+    Coordinates :: struct {
+        x: int;
+        y: int;
+    }
+
+    Tile :: struct {
+        color: string;
+        using coordinates: Coordinates;
+    }
+
+    JSON :: #string END
+    {
+        "color": "green",
+        "x": 1,
+        "y": 3
+    }
+    END
+
+    success, tile := json_parse_string(JSON, Tile, ignore_unknown = false);
+    assert(success);
+    print("Decoded tile: %", tile);
+    assert(tile.color == "green");
+    assert(tile.x == 1);
+    assert(tile.y == 3);
+}
+
 main :: () {
     Debug.init();
 
@@ -232,15 +320,20 @@ main :: () {
 		typed_printing();
 		generic_parsing();
 		generic_printing();
+        rename_by_note();
+        custom_rename_procedure();
+        decode_into_struct_with_using();
 	}
 
     // Since the program ends here, this doesn't matter, but just setting an example.
     reset_temporary_storage();
 }
 
-#import, file "../module.jai"; 
+#import, file "../module.jai";
 
 #import "Basic";
 #import "Hash_Table"; // To be able to iterate over node.object
+#import "String"; // For to_upper_copy
+#import "Compiler"; // For Type_Info_Struct_Member
 Debug :: #import "Debug";
 Hash_Table :: #import "Hash_Table";

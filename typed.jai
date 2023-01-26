@@ -1,14 +1,15 @@
+
 // Parse a JSON string into the given Type.
 // All members of Type that are not present in the JSON are kept at their default values.
 // All fields in the JSON that have no corresponding member in Type are ignored by default
 // but you can pass ignore_unknown = false to fail instead.
 //@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
-json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> success: bool, T {
+json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename := rename_by_note) -> success: bool, T {
 	result: T;
 	if !content then return false, result;
 
 	info := type_info(T);
-	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "");
+	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "", rename=rename);
 	if !success		return false, result;
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -20,7 +21,7 @@ json_parse_string :: (content: string, $T: Type, ignore_unknown := true) -> succ
 	return true, result;
 }
 
-json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> success: bool, T {
+json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename := rename_by_note) -> success: bool, T {
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
@@ -32,11 +33,11 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true) -> succe
 	if (context.log_level >= .VERBOSE) {
 		log("Read file: %", success);
 	}
-	success, result = json_parse_string(file_data, T, ignore_unknown);
+	success, result = json_parse_string(file_data, T, ignore_unknown, rename=rename);
 	return success, result;
 }
 
-json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, level := 0) {
+json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, level := 0) {
 	if info.type == {
 		case .BOOL;
 			append(builder, ifx <<(cast(*bool) data) "true" else "false");
@@ -80,7 +81,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 					for 0..level	append(builder, indent_char);
 				}
 				for 0..array_count-1 {
-					json_write_native(builder, array_data, info_array.element_type, indent_char, ignore, level + 1);
+					json_write_native(builder, array_data, info_array.element_type, indent_char, ignore, rename, level + 1);
 					if it != array_count - 1		append(builder, ",");
 					array_data += stride;
 				}
@@ -98,7 +99,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			} else {
 				append(builder, #char "{");
 				first := true;
-				json_write_native_members(builder, data, struct_info.members, indent_char, ignore, level, *first);
+				json_write_native_members(builder, data, struct_info.members, indent_char, ignore, rename, level, *first);
 				if indent_char.count {
 					append(builder, "\n");
 					for 0..level-1	append(builder, indent_char);
@@ -110,7 +111,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			ptr := << cast(**void) data;
 			if ptr {
-				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, level);
+				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, rename, level);
 			} else {
 				append(builder, "null");
 			}
@@ -121,13 +122,13 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 #scope_file
 
-json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, level := 0, first: *bool) {
+json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename: Rename_Proc, level := 0, first: *bool) {
 	for * member: members {
 		if member.flags & .CONSTANT     continue;
 		if ignore(member)               continue;
 		if (member.type.type == .STRUCT && member.flags & .USING) {
 			info := cast(*Type_Info_Struct) member.type;
-			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, level, first);
+			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, rename, level, first);
 		} else {
 			if !<<first	append(builder, ",");
 			<<first = false;
@@ -137,9 +138,12 @@ json_write_native_members :: (builder: *String_Builder, data: *void, members: []
 				for 0..level	append(builder, indent_char);
 			}
 
-			json_append_escaped(builder, member.name);
+			renamed_name := rename(member);
+			name := ifx renamed_name.count > 0	renamed_name else member.name;
+
+			json_append_escaped(builder, name);
 			append(builder, ": ");
-			json_write_native(builder, data + member.offset_in_bytes, member.type, indent_char, ignore, level + 1);
+			json_write_native(builder, data + member.offset_in_bytes, member.type, indent_char, ignore, rename, level + 1);
 		}
 	}
 }
@@ -163,7 +167,7 @@ is_generic_json_value :: (info: *Type_Info) -> bool {
 	return info == type_info(JSON_Value);
 }
 
-parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string) -> remainder: string, success: bool {
+parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc) -> remainder: string, success: bool {
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
 	success := true;
 
@@ -284,7 +288,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					value, remainder, success = parse_array(remainder);
 					json_set(cast(*JSON_Value)value_slot, value);
 				} else {
-					remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown);
+					remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown, rename=rename);
 				}
 			}
 		case #char "{";
@@ -299,7 +303,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					<<value, remainder, success = parse_object(remainder);
 					json_set(cast(*JSON_Value)value_slot, value);
 				} else {
-					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown);
+					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown, rename=rename);
 				}
 			}
 		case;
@@ -422,7 +426,7 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     return remainder, success;
 }
 
-parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool) -> remainder: string, success: bool {
+parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
 	element_size: int;
 	stride: int;
 	if slot {
@@ -463,7 +467,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			}
 
 			success: bool;
-			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "");
+			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "", rename=rename);
 			if !success	return remainder, false;
 
 			array.count += 1;
@@ -483,7 +487,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	} else {
 		while true {
 			success: bool;
-			remainder, success = parse_value(remainder, null, null, ignore_unknown, "");
+			remainder, success = parse_value(remainder, null, null, ignore_unknown, "", rename=rename);
 			if !success	return remainder, false;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -498,7 +502,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	return remainder, true;
 }
 
-parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool) -> remainder: string, success: bool {
+parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
 	assert(str[0] == #char "{", "Invalid object start %", str);
 	remainder := advance(str);
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -506,6 +510,34 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		remainder = advance(remainder);
 		return remainder, true;
 	}
+
+    // @Speed: Building this table every time is pretty silly.
+    // We should probably either not build it at all or cache it somewhere.
+    Member_Offset :: struct {
+        member: *Type_Info_Struct_Member;
+        offset_in_bytes: s64;
+    }
+	member_table: Table(string, Member_Offset);
+	init(*member_table);
+	defer deinit(*member_table);
+
+	// This procedure is somewhat copied from Basic.get_field.
+	fill_member_table :: (table: *type_of(member_table), info: *Type_Info_Struct, rename: Rename_Proc, base_offset := 0) {
+		// First pass: Don't try recursing.
+		for * member: info.members {
+			name := rename(member);
+			table_set(table, name, .{member, base_offset + member.offset_in_bytes});
+		}
+
+		// Second pass: See if we can get something recursively.
+		for * info.members {
+        	if (it.flags & .USING) && (it.type.type == .STRUCT) {
+				fill_member_table(table, cast(*Type_Info_Struct)it.type, rename, base_offset + it.offset_in_bytes);
+			}
+		}
+	}
+
+	if info fill_member_table(*member_table, info, rename);
 
 	while true {
 		if remainder[0] != #char "\""	return remainder, false;
@@ -516,17 +548,13 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		if !success		return remainder, false;
 		defer free(key);
 
-		member: *Type_Info_Struct_Member;
-		member_offset: s64;
-		if info {
-			member, member_offset = get_field(info, key);
-		}
+		member_offset, member_found := table_find(*member_table, key);
 
 		member_slot: *u8;
 		member_info: *Type_Info;
-		if member {
-			member_slot = slot + member_offset;
-			member_info = member.type;
+		if member_found {
+			member_slot = slot + member_offset.offset_in_bytes;
+			member_info = member_offset.member.type;
 		} else if !ignore_unknown {
 			log_error("Missing member % in %", key, <<info);
 			return remainder, false;
@@ -536,7 +564,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		if remainder[0] != #char ":"	return remainder, false;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key);
+		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key, rename);
 		if !success		return remainder, false;
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
