@@ -4,7 +4,8 @@
 // "indent_char" does what it says on the tin.
 // "ignore" is only used for custom types to determine which properties of your custom type should be serialized.
 //		The default ignore function ignores all struct members that have the note @JsonIgnore.
-// "rename" is used for renaming certain members. 
+// "rename" is used for renaming certain members.
+//      It gets called with the Type_Info_Struct_Member and must return the new name of the field.
 // 		The default procedure rename members by their @JsonName note. Eg: @JsonName(renamed_member).
 json_write_string :: (value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note) -> string {
 	builder: String_Builder;
@@ -60,6 +61,9 @@ json_escape_string :: (str: string) -> string {
 	return escaped;
 }
 
+Ignore_Proc :: #type (member: *Type_Info_Struct_Member) -> bool;
+Rename_Proc :: #type (member: *Type_Info_Struct_Member) -> string;
+
 ignore_by_note :: (member: *Type_Info_Struct_Member) -> bool {
 	for note: member.notes {
 		if note == "JsonIgnore"	return true;
@@ -69,12 +73,16 @@ ignore_by_note :: (member: *Type_Info_Struct_Member) -> bool {
 
 rename_by_note :: (member: *Type_Info_Struct_Member) -> string {
 	for note: member.notes {
-		if !contains(note, "JsonName(") continue;
-		if note[note.count-1] != #char ")" continue;
-		return slice(note, 9, note.count-10);	
+		if !begins_with(note, "JsonName(") continue;
+        if note.count <= 10 || note[note.count-1] != #char ")" {
+            log_error("Invalid JsonName note format. Expected a name in parenthesis, but the note was \"%\".", note);
+            continue;
+        }
+
+		return slice(note, 9, note.count-10);
 	}
 
-	return "";
+	return member.name;
 }
 
 #scope_module

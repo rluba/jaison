@@ -122,7 +122,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 #scope_file
 
-json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, level := 0, first: *bool) {
+json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename: Rename_Proc, level := 0, first: *bool) {
 	for * member: members {
 		if member.flags & .CONSTANT     continue;
 		if ignore(member)               continue;
@@ -167,7 +167,7 @@ is_generic_json_value :: (info: *Type_Info) -> bool {
 	return info == type_info(JSON_Value);
 }
 
-parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename := rename_by_note) -> remainder: string, success: bool {
+parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc) -> remainder: string, success: bool {
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
 	success := true;
 
@@ -426,7 +426,7 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     return remainder, success;
 }
 
-parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename := rename_by_note) -> remainder: string, success: bool {
+parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
 	element_size: int;
 	stride: int;
 	if slot {
@@ -502,7 +502,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	return remainder, true;
 }
 
-parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename := rename_by_note) -> remainder: string, success: bool {
+parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
 	assert(str[0] == #char "{", "Invalid object start %", str);
 	remainder := advance(str);
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -511,29 +511,28 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		return remainder, true;
 	}
 
-	member_table: Table(string, *Type_Info_Struct_Member);
-	init(*member_table);	
+    // @Speed: Building this table every time is pretty silly.
+    // We should probably either not build it at all or cache it somewhere.
+    Member_Offset :: struct {
+        member: *Type_Info_Struct_Member;
+        offset_in_bytes: s64;
+    }
+	member_table: Table(string, Member_Offset);
+	init(*member_table);
 	defer deinit(*member_table);
 
 	// This procedure is somewhat copied from Basic.get_field.
-	fill_member_table :: (table: *type_of(member_table), info: *Type_Info_Struct, rename := rename_by_note) {
+	fill_member_table :: (table: *type_of(member_table), info: *Type_Info_Struct, rename: Rename_Proc, base_offset := 0) {
 		// First pass: Don't try recursing.
 		for * member: info.members {
-			if member.name.count == 0 continue;
-
-			renamed := rename(member);
-			if renamed.count == 0 {
-				table_set(table, member.name, member);
-				continue;
-			}
-
-			table_set(table, renamed, member);
+			name := rename(member);
+			table_set(table, name, .{member, base_offset + member.offset_in_bytes});
 		}
 
 		// Second pass: See if we can get something recursively.
 		for * info.members {
         	if (it.flags & .USING) && (it.type.type == .STRUCT) {
-				fill_member_table(table, cast(*Type_Info_Struct)it.type, rename);
+				fill_member_table(table, cast(*Type_Info_Struct)it.type, rename, base_offset + it.offset_in_bytes);
 			}
 		}
 	}
@@ -549,13 +548,13 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		if !success		return remainder, false;
 		defer free(key);
 
-		member, member_found := table_find(*member_table, key); 
+		member_offset, member_found := table_find(*member_table, key);
 
 		member_slot: *u8;
 		member_info: *Type_Info;
 		if member_found {
-			member_slot = slot + member.offset_in_bytes;
-			member_info = member.type;
+			member_slot = slot + member_offset.offset_in_bytes;
+			member_info = member_offset.member.type;
 		} else if !ignore_unknown {
 			log_error("Missing member % in %", key, <<info);
 			return remainder, false;
