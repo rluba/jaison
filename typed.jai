@@ -66,8 +66,6 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			array_data := data;
 			array_count := info_array.array_count;
 			if info_array.array_count == -1 {
-				assert(info_array.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
-
 				array_count = << cast(*s64) data;
 
 				array_dest: **void = data + 8;
@@ -108,7 +106,6 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			}
 		case .POINTER;
 			ptr_info := cast(*Type_Info_Pointer) info;
-			assert(ptr_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			ptr := << cast(**void) data;
 			if ptr {
 				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, rename, level);
@@ -156,7 +153,6 @@ is_generic_json_value_or_pointer_to_it :: (info: *Type_Info) -> bool {
 	value_info := info;
 	if info.type == .POINTER {
 		pointer_info := cast(*Type_Info_Pointer) info;
-		assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 		value_info = pointer_info.pointer_to;
 	}
 
@@ -175,7 +171,6 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		value_info := info;
 		if info.type == .POINTER {
 			pointer_info := cast(*Type_Info_Pointer) info;
-			assert(pointer_info.relative_pointer_size == 0, "Relative pointers are not yet supported"); // @Incomplete
 			value_info = pointer_info.pointer_to;
 		}
 
@@ -431,7 +426,6 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	stride: int;
 	if slot {
 		assert(info.array_count == -1, "Fixed array are not implemented yet");
-		assert(info.relative_pointer_size == 0, "Relative pointers are not yet supported");  // @Incomplete
 
 		element_size = info.element_type.runtime_size;
 		assert(element_size != -1, "Unknown element size");
