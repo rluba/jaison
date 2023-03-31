@@ -496,6 +496,27 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	return remainder, true;
 }
 
+Member_Offset :: struct {
+    member: *Type_Info_Struct_Member;
+    offset_in_bytes: s64;
+}
+// This procedure is somewhat copied from Basic.get_field.
+fill_member_table :: (table: *Table(string, Member_Offset), info: *Type_Info_Struct, rename: Rename_Proc, base_offset := 0) {
+    // First pass: Don't try recursing.
+    for * member: info.members {
+        name := rename(member);
+        table_set(table, name, .{member, base_offset + member.offset_in_bytes});
+    }
+
+    // Second pass: See if we can get something recursively.
+    for * info.members {
+        if (it.flags & .USING) && (it.type.type == .STRUCT) {
+            fill_member_table(table, cast(*Type_Info_Struct)it.type, rename, base_offset + it.offset_in_bytes);
+        }
+    }
+}
+
+
 parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
 	assert(str[0] == #char "{", "Invalid object start %", str);
 	remainder := advance(str);
@@ -507,29 +528,9 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 
     // @Speed: Building this table every time is pretty silly.
     // We should probably either not build it at all or cache it somewhere.
-    Member_Offset :: struct {
-        member: *Type_Info_Struct_Member;
-        offset_in_bytes: s64;
-    }
 	member_table: Table(string, Member_Offset);
 	init(*member_table);
 	defer deinit(*member_table);
-
-	// This procedure is somewhat copied from Basic.get_field.
-	fill_member_table :: (table: *type_of(member_table), info: *Type_Info_Struct, rename: Rename_Proc, base_offset := 0) {
-		// First pass: Don't try recursing.
-		for * member: info.members {
-			name := rename(member);
-			table_set(table, name, .{member, base_offset + member.offset_in_bytes});
-		}
-
-		// Second pass: See if we can get something recursively.
-		for * info.members {
-        	if (it.flags & .USING) && (it.type.type == .STRUCT) {
-				fill_member_table(table, cast(*Type_Info_Struct)it.type, rename, base_offset + it.offset_in_bytes);
-			}
-		}
-	}
 
 	if info fill_member_table(*member_table, info, rename);
 
