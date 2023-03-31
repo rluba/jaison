@@ -46,7 +46,7 @@ json_free :: (using val: JSON_Value) {
 				free(it_index);
 				json_free(it);
 			}
-			uninit(object);
+			deinit(object);
 
 			free(object);
 	}
