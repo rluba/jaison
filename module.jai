@@ -18,7 +18,7 @@ json_write_file :: (filename: string, value: $T, indent_char := "\t", ignore := 
 	builder: String_Builder;
 	defer free_buffers(*builder);
 	json_append_value(*builder, value, indent_char, ignore, rename);
-	return write_entire_file(filename, builder);
+	return write_entire_file(filename, *builder);
 }
 
 json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note) {
