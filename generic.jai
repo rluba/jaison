@@ -156,7 +156,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 		case JSON_Type.BOOLEAN;
 			append(builder, ifx boolean "true" else "false");
 		case JSON_Type.NUMBER;
-			print_item_to_builder(builder, number);
+                        print_item_to_builder(builder, number);
 		case JSON_Type.STRING;
 			json_append_escaped(builder, str);
 		case JSON_Type.ARRAY;
@@ -383,3 +383,4 @@ parse_object :: (str: string) -> result: JSON_Object, remainder: string, success
 
 #import "Compiler";
 #import "unicode_utils";
+#import "Math";

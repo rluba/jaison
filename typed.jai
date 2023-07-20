@@ -4,12 +4,12 @@
 // All fields in the JSON that have no corresponding member in Type are ignored by default
 // but you can pass ignore_unknown = false to fail instead.
 //@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
-json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename := rename_by_note) -> success: bool, T {
+json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename := rename_by_note, string_parse_callback : (s: string)->string = null) -> success: bool, T {
 	result: T;
 	if !content then return false, result;
 
 	info := type_info(T);
-	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "", rename=rename);
+	remainder, success := parse_value(content, cast(*u8)*result, info, ignore_unknown, "", rename=rename, string_parse_callback=string_parse_callback);
 	if !success		return false, result;
 
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -21,7 +21,7 @@ json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename 
 	return true, result;
 }
 
-json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename := rename_by_note) -> success: bool, T {
+json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename := rename_by_note, string_parse_callback : (s: string)->string = null) -> success: bool, T {
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
@@ -33,7 +33,7 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename :
 	if (context.log_level >= .VERBOSE) {
 		log("Read file: %", success);
 	}
-	success, result = json_parse_string(file_data, T, ignore_unknown, rename=rename);
+	success, result = json_parse_string(file_data, T, ignore_unknown, rename=rename, string_parse_callback);
 	return success, result;
 }
 
@@ -163,7 +163,7 @@ is_generic_json_value :: (info: *Type_Info) -> bool {
 	return info == type_info(JSON_Value);
 }
 
-parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc) -> remainder: string, success: bool {
+parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc, string_parse_callback: (s: string)->string = null) -> remainder: string, success: bool {
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
 	success := true;
 
@@ -255,7 +255,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				remainder, success = parse_enum_string(remainder, value_slot, info_enum);
 			} else {
 				value: string;
-				value, remainder, success = parse_string(remainder);
+				value, remainder, success = parse_string(remainder, string_parse_callback=string_parse_callback);
 				stored := false;
 				defer if !stored	free(value);
 				if success && slot {
@@ -283,7 +283,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					value, remainder, success = parse_array(remainder);
 					json_set(cast(*JSON_Value)value_slot, value);
 				} else {
-					remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown, rename=rename);
+					remainder, success = parse_array(remainder, value_slot, cast(*Type_Info_Array) value_info, ignore_unknown, rename=rename, string_parse_callback=string_parse_callback);
 				}
 			}
 		case #char "{";
@@ -295,10 +295,10 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if success {
 				if is_generic {
 					value := New(JSON_Object);
-					<<value, remainder, success = parse_object(remainder);
+					<<value, remainder, success = parse_object(remainder); // , string_parse_callback=string_parse_callback);
 					json_set(cast(*JSON_Value)value_slot, value);
 				} else {
-					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown, rename=rename);
+					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown, rename=rename, string_parse_callback=string_parse_callback);
 				}
 			}
 		case;
@@ -421,7 +421,7 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     return remainder, success;
 }
 
-parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
+parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc, string_parse_callback: (s: string)->string = null) -> remainder: string, success: bool {
 	element_size: int;
 	stride: int;
 	if slot {
@@ -461,7 +461,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			}
 
 			success: bool;
-			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "", rename=rename);
+			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "", rename=rename, string_parse_callback=string_parse_callback);
 			if !success	return remainder, false;
 
 			array.count += 1;
@@ -481,7 +481,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	} else {
 		while true {
 			success: bool;
-			remainder, success = parse_value(remainder, null, null, ignore_unknown, "", rename=rename);
+			remainder, success = parse_value(remainder, null, null, ignore_unknown, "", rename=rename, string_parse_callback=string_parse_callback);
 			if !success	return remainder, false;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -517,7 +517,7 @@ fill_member_table :: (table: *Table(string, Member_Offset), info: *Type_Info_Str
 }
 
 
-parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
+parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc, string_parse_callback: (s: string)->string = null) -> remainder: string, success: bool {
 	assert(str[0] == #char "{", "Invalid object start %", str);
 	remainder := advance(str);
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
@@ -539,7 +539,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 
 		key: string;
 		success: bool;
-		key, remainder, success = parse_string(remainder);
+		key, remainder, success = parse_string(remainder, string_parse_callback);
 		if !success		return remainder, false;
 		defer free(key);
 
@@ -559,7 +559,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		if remainder[0] != #char ":"	return remainder, false;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key, rename);
+		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key, rename, string_parse_callback);
 		if !success		return remainder, false;
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);

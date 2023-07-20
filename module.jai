@@ -139,7 +139,7 @@ expect_and_slice :: (str: string, expected: string) -> remainder: string, succes
 	return remainder, true;
 }
 
-parse_string :: (str: string) -> result: string, remainder: string, success: bool {
+parse_string :: (str: string, string_parse_callback : (s: string)->string = null) -> result: string, remainder: string, success: bool {
 	assert(str[0] == #char "\"", "Invalid string start %", str);
 	inside := advance(str);
 	needsUnescape := false;
@@ -155,12 +155,17 @@ parse_string :: (str: string) -> result: string, remainder: string, success: boo
 
 	length := inside.data - str.data - 1;
 	result := slice(str, 1, length);
+
 	if needsUnescape {
 		success: bool;
 		result, success = unescape(result);
 		if !success		return "", str, false;
 	} else {
 		result = copy_string(result);
+	}
+
+	if string_parse_callback != null {
+		result = string_parse_callback(result);
 	}
 
 	remainder := slice(str, length + 2, str.count - length - 2);
