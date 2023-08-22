@@ -44,7 +44,7 @@ Your_Type_To_Parse_Into :: struct {
 	age: int;
 	something_we_dont_know_much_about: *JSON_Value; // Whatever structure hides in the JSON, it will be parsed into JSON_Value.
 }
-
+```
 ## Printing / Serialization
 
 Generating a string works the same for both interfaces:
