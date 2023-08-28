@@ -452,7 +452,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
         }
 
 		while true {
-			Reflection.maybe_grow(*array, element_size);
+			maybe_grow(*array, element_size);
             element_data := array.data + array.count * stride;
 			if initializer {
 				initializer(element_data);
@@ -611,3 +611,26 @@ parse_and_write_integer :: (info: *Type_Info_Integer, pointer: *void, string_val
 }
 
 Reflection :: #import "Reflection";
+
+// Copied from Reflection, which doesn’t contain it anymore.
+maybe_grow :: (array: *Resizable_Array, element_size: s64) {
+	if array.count >= array.allocated {
+		reserve := 2 * array.allocated;
+		if reserve < 8  reserve = 8;
+
+		if !array.allocator.proc {
+			if context.allocator.proc {
+				array.allocator      = context.allocator;
+			} else {
+				array.allocator      = context.default_allocator;
+			}
+		}
+
+		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size, array.allocator);
+		assert(array.data != null); // Program will die if we couldn't get memory. We can think about an alternative strategy, but it's hard to know what would be reasonable.
+
+		array.allocated = reserve;
+	}
+}
+
+
