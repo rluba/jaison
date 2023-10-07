@@ -9,7 +9,7 @@ LevelData :: struct {
     score:    float;
     entities: [..] Entity;
 
-    floats:   [..] float;
+    floats:   [] float;
 
     LevelKind :: enum {
         EASY      :: 0;
@@ -39,13 +39,25 @@ LEVEL_DATA_2_JSON := #string DONE
 {"kind": 2}
 DONE;
 
+Fixed_Size_Data :: struct {
+    data: [3] int;
+}
+
+DATA_ARRAY_1 := #string DONE
+{"data": [1, 2, 3]}
+DONE;
+
+DATA_ARRAY_2 := #string DONE
+{"data": [1, 2]}
+DONE;
+
 typed_parsing :: () {
     {
         success, level := json_parse_string(LEVEL_DATA_1_JSON, LevelData, ignore_unknown=false);
         // success, level := json_parse_file("level.json", LevelData, ignore_unknown=false);
         assert(success);
 
-        print("Typed parsing result 1:\n%\n\n", level);
+        log("Typed parsing result 1:\n%\n\n", level);
         assert(level.floats.count == 6);
         assert(level.floats[1] > 1);  // Regression test, we had a bug here…
     }
@@ -54,9 +66,25 @@ typed_parsing :: () {
         success, level := json_parse_string(LEVEL_DATA_2_JSON, LevelData, ignore_unknown=false);
         assert(success);
 
-        print("Typed parsing result 2:\n%\n\n", level);
+        log("Typed parsing result 2:\n%\n\n", level);
 
         assert(level.kind == .LEGENDARY);
+    }
+    {
+        // Test parsing into fixed-sized arrays
+        success, result := json_parse_string(DATA_ARRAY_1, Fixed_Size_Data, ignore_unknown=false);
+        assert(success);
+
+        log("Typed parsing result 3:\n%\n\n", result);
+
+        assert(result.data[0] == 1);
+        assert(result.data[1] == 2);
+        assert(result.data[2] == 3);
+    }
+    {
+        // Test parsing into fixed-sized arrays (incorrect size)
+        success, result := json_parse_string(DATA_ARRAY_2, Fixed_Size_Data, ignore_unknown=false);
+        assert(!success);
     }
 }
 
@@ -66,7 +94,7 @@ typed_printing :: () {
     array_add(*level.entities, .{name="Chris", x=6, y=6});
 
     json_string := json_write_string(level);
-    print("Typed printing result:\n%\n\n", json_string);
+    log("Typed printing result:\n%\n\n", json_string);
 
     // success := json_write_file("level.json", level, indent_char="");
     // assert(success);
@@ -100,7 +128,7 @@ DONE
     // success, root := json_parse_file("level.json");
     assert(success);
 
-    print("Generic parsing result:\n");
+    log("Generic parsing result:");
 
     // Print things out, for demonstration purposes
 
@@ -164,7 +192,7 @@ DONE
             version = val.number;
         }
     }
-    print("version: %\n", version);
+    log("version: %\n", version);
 
     // Traverse a structure we are confident about
     for get(root, "entities", .ARRAY).array {
@@ -175,16 +203,16 @@ DONE
         if entity_name == {
 			case "Player";
 				player_index := cast(int) get(it, "player_index", .NUMBER).number;
-				print("Player with player_index=%\n", player_index);
+				log("Player with player_index=%\n", player_index);
 			case "Snake";
 				snake_color := cast(int) get(it, "snake_color", .NUMBER).number;
-				print("Snake with snake_color=%\n", snake_color);
+				log("Snake with snake_color=%\n", snake_color);
 			case;
 				//...
         }
     }
 
-    print("\n");
+    log("\n");
 }
 
 generic_printing :: () {

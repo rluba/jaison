@@ -425,8 +425,6 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	element_size: int;
 	stride: int;
 	if slot {
-		assert(info.array_count == -1, "Fixed array are not implemented yet");
-
 		element_size = info.element_type.runtime_size;
 		assert(element_size != -1, "Unknown element size");
 		stride = get_array_stride(element_size);
@@ -471,13 +469,23 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			remainder = advance(remainder);
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
 		}
+
 		if info.array_type == .VIEW {
 			view := (cast(*Array_View_64) slot);
 			view.count = array.count;
 			view.data = array.data;
-		} else {
+		} else if info.array_count == -1 {
+            // Resizable array
 			<<(cast(*Resizable_Array) slot) = array;
-		}
+		} else {
+            // Fixed-size array
+            if (info.array_count != array.count) {
+                log_error("Expected array of size %, but found array of size %\n", info.array_count, array.count);
+                return remainder, false;
+            }
+
+            memcpy(slot, array.data, array.count * stride);
+        }
 	} else {
 		while true {
 			success: bool;
