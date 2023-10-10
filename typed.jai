@@ -184,7 +184,10 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		if value_info.type != expected_type {
 			teaser := to_parse;
 			if teaser.count > 50	teaser.count = 50;
-			log_error("Cannot parse % value into type %. Remaining input is: %…", expected_type, <<info, teaser);
+            builder: String_Builder;
+            print_type_to_builder(*builder, info);
+            type_name := builder_to_string(*builder, allocator = temp);
+			log_error("Cannot parse % value into type %. Remaining input is: %…", expected_type, type_name, teaser);
 			return null, false, false, value_info;
 		}
 
