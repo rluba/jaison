@@ -60,7 +60,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 		case .ARRAY;
 			info_array := cast(*Type_Info_Array) info;
 			element_size := info_array.element_type.runtime_size;
-			assert(element_size != -1);  // @Robustness @Incomplete: Right now, this might fail.
+			assert(element_size != -1);
 
 			stride := get_array_stride(element_size);
 			array_data := data;
