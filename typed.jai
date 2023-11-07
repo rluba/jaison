@@ -181,7 +181,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 
 		is_generic := is_generic_json_value(value_info);
 
-		if value_info.type != expected_type {
+		if !is_generic && value_info.type != expected_type {
 			teaser := to_parse;
 			if teaser.count > 50	teaser.count = 50;
             builder: String_Builder;
