@@ -385,13 +385,18 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
 
         for v: values {
             name := normalize_enum_value(v);
+            found_name := false;
             for info_enum.names {
                 if name == it {
                     parsed_count += 1;
                     int_value |= info_enum.values[it_index];
+                    found_name = true;
                     break;
                 }
             }
+
+            if !found_name
+                log_error ("The value '%' does not exist in enum '%'.", v, info_enum.name);
         }
 
         if parsed_count != values.count {
@@ -407,6 +412,9 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
                 break;
             }
         }
+
+        if !success
+            log_error ("The value '%' does not exist in enum '%'.", value, info_enum.name);
     }
 
     if success {
