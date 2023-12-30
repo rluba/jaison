@@ -641,7 +641,7 @@ maybe_grow :: (array: *Resizable_Array, element_size: s64) {
 			}
 		}
 
-		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size, array.allocator);
+		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size,, array.allocator);
 		assert(array.data != null); // Program will die if we couldn't get memory. We can think about an alternative strategy, but it's hard to know what would be reasonable.
 
 		array.allocated = reserve;
