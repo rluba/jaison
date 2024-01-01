@@ -381,7 +381,7 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     int_value: s64;
     if info_enum.enum_type_flags & .FLAGS {
         parsed_count := 0;
-        values := split(value, "|");
+        values := split(value, "|",, temp);
 
         for v: values {
             name := normalize_enum_value(v);
