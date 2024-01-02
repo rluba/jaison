@@ -1,6 +1,7 @@
 # JSON serialization / deserialization module for Jai
 
-*Attention: This version requires Jai beta 0.1.050! Please use [the 0.1.049 branch](https://github.com/rluba/jason/tree/release/beta_0.1.049) for older betas.*
+*Attention: This version requires Jai beta 0.1.080!*
+Use `v1.0.0` for older betas.
 
 This module offers two interfaces:
 * one uses a "generic tree" built from `JSON_Value`

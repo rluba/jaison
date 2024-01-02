@@ -186,7 +186,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if teaser.count > 50	teaser.count = 50;
             builder: String_Builder;
             print_type_to_builder(*builder, info);
-            type_name := builder_to_string(*builder, allocator = temp);
+            type_name := builder_to_string(*builder,, allocator = temp);
 			log_error("Cannot parse % value into type \"%\". Remaining input is: %…", expected_type, type_name, teaser);
 			return null, false, false, value_info;
 		}
@@ -221,7 +221,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
                 } else {
                     builder: String_Builder;
                     print_type_to_builder(*builder, info);
-                    type_name := builder_to_string(*builder, allocator = temp);
+                    type_name := builder_to_string(*builder,, allocator = temp);
 					log_error("Got NULL value for non-pointer type \"%\" of field \"%\". Keeping default value instead.", type_name, field_name);
 				}
 			}
@@ -381,7 +381,7 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     int_value: s64;
     if info_enum.enum_type_flags & .FLAGS {
         parsed_count := 0;
-        values := split(value, "|");
+        values := split(value, "|",, temp);
 
         for v: values {
             name := normalize_enum_value(v);
