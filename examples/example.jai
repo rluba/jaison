@@ -54,7 +54,7 @@ Entity :: struct {
 
 
 LEVEL_DATA_1_JSON := #string DONE
-{"kind": ".HARD", "flags": ".FLAG_A | .FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}], "floats": [0.00, 1.11111111111111111, 2.0202, 3e-5, 4.444444, -5.0]}
+{"kind": ".HARD", "flags": "FLAG_A | LevelFlags.FLAG_C", "secret": false,"score":5.5,"player": {"name": "Pat","x": 10,"y": 10},"player2": {"name": "Chris"},"entities": [{"name": "fdsa","x": 0,"y": 0},{"name": "fdsa","x": 0,"y": 0}], "floats": [0.00, 1.11111111111111111, 2.0202, 3e-5, 4.444444, -5.0]}
 DONE;
 
 LEVEL_DATA_2_JSON := #string DONE

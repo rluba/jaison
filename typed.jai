@@ -369,11 +369,11 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     // Parse by members' names
     normalize_enum_value :: inline (name: string) -> string #expand {
         normalized := trim(name);
-        // @Speed, @Cleanup: Why are we tprinting this every time? We could just use the name directly and then check for the dot.
-        if starts_with(normalized, tprint("%.", info_enum.name))
+        if normalized.count > info_enum.name.count && starts_with(normalized, info_enum.name) && normalized[info_enum.name.count] == #char "." {
             normalized = slice(normalized, info_enum.name.count+1, normalized.count-info_enum.name.count-1);
-        if starts_with(normalized, ".")
+        } else if starts_with(normalized, ".") {
             normalized = slice(normalized, 1, normalized.count-1);
+        }
         return normalized;
     }
 
@@ -395,8 +395,8 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
 
             if !found_name {
                 log_error("Enum \"%\" does not contain a member named \"%\".", info_enum.name, name);
-            success = false;
-        }
+                success = false;
+            }
         }
     } else {
         success = false;
