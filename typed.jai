@@ -380,7 +380,6 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     int_info := info_enum.internal_type;
     int_value: s64;
     if info_enum.enum_type_flags & .FLAGS {
-        parsed_count := 0;
         values := split(value, "|",, temp);
 
         for v: values {
@@ -388,19 +387,16 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
             found_name := false;
             for info_enum.names {
                 if name == it {
-                    parsed_count += 1;
-                    int_value |= info_enum.values[it_index];
                     found_name = true;
+                    int_value |= info_enum.values[it_index];
                     break;
                 }
             }
 
-            if !found_name
-                log_error ("The value '%' does not exist in enum '%'.", v, info_enum.name);
-        }
-
-        if parsed_count != values.count {
+            if !found_name {
+                log_error("Enum \"%\" does not contain a member named \"%\".", info_enum.name, name);
             success = false;
+        }
         }
     } else {
         success = false;
@@ -413,8 +409,9 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
             }
         }
 
-        if !success
-            log_error ("The value '%' does not exist in enum '%'.", value, info_enum.name);
+        if !success {
+            log_error("Enum \"%\" does not contain a member named \"%\".", info_enum.name, name);
+        }
     }
 
     if success {

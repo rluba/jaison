@@ -1,3 +1,25 @@
+#import, file "../module.jai";
+
+main :: () {
+	{
+		// Use the temporary allocator so we don't have to worry about individually freeing
+		// all the allocations.
+		push_allocator(temp);
+
+		typed_parsing();
+		typed_printing();
+		generic_parsing();
+		generic_printing();
+        rename_by_note();
+        custom_rename_procedure();
+        decode_into_struct_with_using();
+
+        enum_errors();
+	}
+
+    // Since the program ends here, this doesn't matter, but just setting an example.
+    reset_temporary_storage();
+}
 
 // Data structures for typed parsing/printing
 LevelData :: struct {
@@ -243,7 +265,7 @@ generic_printing :: () {
 
     // Print result
     json_string := json_write_string(root);
-    print("Generic_printing result:\n%\n\n", json_string);
+    log("Generic_printing result:\n%\n\n", json_string);
 
     //json_write_file("level.json", root);
 }
@@ -272,12 +294,12 @@ rename_by_note :: () {
     success, message_decoded := json_parse_string(json, Message, ignore_unknown = false);
     assert(success);
 
-    print("Rename_by_note decode result:\n%\n\n", message_decoded);
+    log("Rename_by_note decode result:\n%\n\n", message_decoded);
     assert(message_decoded._context.channel == 1);
 
 
     message_encoded := json_write_string(message_decoded);
-    print("Rename_by_note encode result:\n%\n\n", message_encoded);
+    log("Rename_by_note encode result:\n%\n\n", message_encoded);
 
     assert(message_encoded.count != 0);
     assert(find_index_from_left(message_encoded, "_context") == -1);
@@ -299,13 +321,13 @@ custom_rename_procedure :: () {
     player_encoded := json_write_string(player, rename=rename_to_upper);
     assert(player_encoded.count != 0);
 
-    print("encoded with rename_to_upper:\n%\n\n", player_encoded);
+    log("encoded with rename_to_upper:\n%\n\n", player_encoded);
     assert(find_index_from_left(player_encoded, "name") == -1);
     assert(find_index_from_left(player_encoded, "NAME") != -1);
 
     success, player_decoded := json_parse_string(player_encoded, Entity, ignore_unknown = false, rename = rename_to_upper);
     assert(success);
-    print("decoded with rename_to_upper:\n%\n\n", player_decoded);
+    log("decoded with rename_to_upper:\n%\n\n", player_decoded);
     assert(player_decoded.name == "Player");
 }
 
@@ -330,38 +352,36 @@ decode_into_struct_with_using :: () {
 
     success, tile := json_parse_string(JSON, Tile, ignore_unknown = false);
     assert(success);
-    print("Decoded tile: %", tile);
+    log("Decoded tile: %", tile);
     assert(tile.color == "green");
     assert(tile.x == 1);
     assert(tile.y == 3);
 }
 
-main :: () {
-    Debug.init();
+enum_errors :: () {
+    // Testing error messages when parsing invalid enum values
+    {
+        LEVEL_DATA_BROKEN_JSON := #string DONE
+            {"kind": ".VERY_HARD"}
+        DONE;
 
-	{
-		// Use the temporary allocator so we don't have to worry about individually freeing
-		// all the allocations.
-		push_allocator(temp);
+        success, level := json_parse_string(LEVEL_DATA_BROKEN_JSON, LevelData, ignore_unknown=false);
+        assert(!success);
+    }
 
-		typed_parsing();
-		typed_printing();
-		generic_parsing();
-		generic_printing();
-        rename_by_note();
-        custom_rename_procedure();
-        decode_into_struct_with_using();
-	}
+    {
+        LEVEL_DATA_BROKEN_JSON := #string DONE
+            {"flags": "FLAG_A | FLAG_D"}
+        DONE;
 
-    // Since the program ends here, this doesn't matter, but just setting an example.
-    reset_temporary_storage();
+        success, level := json_parse_string(LEVEL_DATA_BROKEN_JSON, LevelData, ignore_unknown=false);
+        assert(!success);
+    }
 }
 
-#import, file "../module.jai";
 
 #import "Basic";
 #import "Hash_Table"; // To be able to iterate over node.object
 #import "String"; // For to_upper_copy
 #import "Compiler"; // For Type_Info_Struct_Member
-Debug :: #import "Debug";
 Hash_Table :: #import "Hash_Table";
