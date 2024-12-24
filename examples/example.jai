@@ -309,7 +309,7 @@ custom_rename_procedure :: () {
     // We can also pass a custom rename procedure for renaming certain members.
 
     rename_to_upper :: (member: *Type_Info_Struct_Member) -> string {
-        return to_upper_copy_new(member.name,,temp);
+        return to_upper_copy(member.name,,temp);
     }
 
     player := Entity.{

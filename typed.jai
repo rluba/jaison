@@ -193,7 +193,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 
 		if info.type == .POINTER {
 			value_slot := alloc(value_info.runtime_size);
-			initializer: (*void);
+			initializer: (*void) -> () #no_context;
 			if value_info.type == .STRUCT {
 				struct_info := cast(*Type_Info_Struct) value_info;
 				initializer = struct_info.initializer;
@@ -455,7 +455,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	if slot {
 		array: Resizable_Array;
 
-        initializer: (*void);
+        initializer: (*void) -> () #no_context;
         if info.element_type.type == .STRUCT {
             struct_info := cast(*Type_Info_Struct) info.element_type;
             initializer = struct_info.initializer;
