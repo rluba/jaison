@@ -16,7 +16,7 @@ The typed interface is what you want for most cases.
 
 Parsing is as simple as:
 
-```Jai
+```Odin
 // Typed version:
 success, result := json_parse_string(json_str, Your_Type_To_Parse_Into);
 // … or if you want to get a generic structure back:
@@ -25,7 +25,7 @@ success, result := json_parse_string(json_str);
 
 There are also a convenience functions for parsing if the JSON data is in a file:
 
-```Jai
+```Odin
 success, result := json_parse_file(json_filename, Your_Type_To_Parse_Into);
 // … or
 success, result := json_parse_file(json_filename);
@@ -39,7 +39,7 @@ See [`typed.jai`](./typed.jai) and [`generic.jai`](./generic.jai) for details an
 If you don’t know the structure of some subfield of your `Your_Type_To_Parse_Into` structure, but still want to get these values from the JSON data,
 you can declare these fields as the generic type `JSON_Value` or `*JSON_Value` and the generic parse function will take over at that point:
 
-```
+```Odin
 Your_Type_To_Parse_Into :: struct {
 	name: string;
 	age: int;
@@ -50,7 +50,7 @@ Your_Type_To_Parse_Into :: struct {
 
 Generating a string works the same for both interfaces:
 
-```Jai
+```Odin
 json_str := json_write_string(my_value);
 ```
 
