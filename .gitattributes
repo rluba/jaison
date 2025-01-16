@@ -1,0 +1,9 @@
+*.jai linguist-language=Odin linguist-detectable=false
+
+# This does not disable syntax highlighting for the specified files but disables the GitHub feature where GitHub tries to detect the most used language in the repo.
+# We don't want to show the Jai repo as an Odin or TypeScript repo.
+*.ts linguist-detectable=false
+*.js linguist-detectable=false
+*.json linguist-detectable=false
+*.md linguist-detectable=false
+*.bat linguist-detectable=false
