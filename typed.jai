@@ -3,7 +3,6 @@
 // All members of Type that are not present in the JSON are kept at their default values.
 // All fields in the JSON that have no corresponding member in Type are ignored by default
 // but you can pass ignore_unknown = false to fail instead.
-//@Incomplete: The typed interface cannot yet parse into float members. (Because I haven’t needed it yet. 🙈) PRs welcome!
 json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename := rename_by_note) -> success: bool, T {
 	result: T;
 	if !content then return false, result;
@@ -62,7 +61,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			element_size := info_array.element_type.runtime_size;
 			assert(element_size != -1);
 
-			stride := get_array_stride(element_size);
+			stride := element_size;
 			array_data := data;
 			array_count := info_array.array_count;
 			if info_array.array_count == -1 {
@@ -145,10 +144,6 @@ json_write_native_members :: (builder: *String_Builder, data: *void, members: []
 	}
 }
 
-get_array_stride :: (size: s64) -> s64 {
-    return size; // @Incomplete: Is this always correct?
-}
-
 is_generic_json_value_or_pointer_to_it :: (info: *Type_Info) -> bool {
 	value_info := info;
 	if info.type == .POINTER {
@@ -193,7 +188,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 
 		if info.type == .POINTER {
 			value_slot := alloc(value_info.runtime_size);
-			initializer: (*void) -> () #no_context;
+			initializer: (*void) #no_context;
 			if value_info.type == .STRUCT {
 				struct_info := cast(*Type_Info_Struct) value_info;
 				initializer = struct_info.initializer;
@@ -435,11 +430,9 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
 
 parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc) -> remainder: string, success: bool {
 	element_size: int;
-	stride: int;
 	if slot {
 		element_size = info.element_type.runtime_size;
 		assert(element_size != -1, "Unknown element size");
-		stride = get_array_stride(element_size);
 	}
 
 	assert(str[0] == #char "[", "Invalid object start %", str);
@@ -455,7 +448,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	if slot {
 		array: Resizable_Array;
 
-        initializer: (*void) -> () #no_context;
+        initializer: (*void) #no_context;
         if info.element_type.type == .STRUCT {
             struct_info := cast(*Type_Info_Struct) info.element_type;
             initializer = struct_info.initializer;
@@ -463,7 +456,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 
 		while true {
 			maybe_grow(*array, element_size);
-            element_data := array.data + array.count * stride;
+            element_data := array.data + array.count * element_size;
 			if initializer {
 				initializer(element_data);
 			} else {
@@ -496,7 +489,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
                 return remainder, false;
             }
 
-            memcpy(slot, array.data, array.count * stride);
+            memcpy(slot, array.data, array.count * element_size);
         }
 	} else {
 		while true {
