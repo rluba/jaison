@@ -513,18 +513,16 @@ Member_Offset :: struct {
     member: *Type_Info_Struct_Member;
     offset_in_bytes: s64;
 }
+
 // This procedure is somewhat copied from Basic.get_field.
 fill_member_table :: (table: *Table(string, Member_Offset), info: *Type_Info_Struct, rename: Rename_Proc, base_offset := 0) {
-    // First pass: Don't try recursing.
     for * member: info.members {
+        offset := base_offset + member.offset_in_bytes;
         name := rename(member);
-        table_set(table, name, .{member, base_offset + member.offset_in_bytes});
-    }
-
-    // Second pass: See if we can get something recursively.
-    for * info.members {
-        if (it.flags & .USING) && (it.type.type == .STRUCT) {
-            fill_member_table(table, cast(*Type_Info_Struct)it.type, rename, base_offset + it.offset_in_bytes);
+        assert(!table_find_pointer(table, name), "Redeclaration of member \"%\": % vs. %", name, <<member, <<table_find_pointer(table, name));
+        table_set(table, name, .{member, offset});
+        if (member.flags & .USING) && (member.type.type == .STRUCT) {
+            fill_member_table(table, cast(*Type_Info_Struct)member.type, rename, offset);
         }
     }
 }
@@ -624,26 +622,4 @@ parse_and_write_integer :: (info: *Type_Info_Integer, pointer: *void, string_val
 }
 
 Reflection :: #import "Reflection";
-
-// Copied from Reflection, which doesn’t contain it anymore.
-maybe_grow :: (array: *Resizable_Array, element_size: s64) {
-	if array.count >= array.allocated {
-		reserve := 2 * array.allocated;
-		if reserve < 8  reserve = 8;
-
-		if !array.allocator.proc {
-			if context.allocator.proc {
-				array.allocator      = context.allocator;
-			} else {
-				array.allocator      = context.default_allocator;
-			}
-		}
-
-		array.data = realloc(array.data, reserve * element_size, array.allocated * element_size,, array.allocator);
-		assert(array.data != null); // Program will die if we couldn't get memory. We can think about an alternative strategy, but it's hard to know what would be reasonable.
-
-		array.allocated = reserve;
-	}
-}
-
 

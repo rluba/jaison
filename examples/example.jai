@@ -292,7 +292,7 @@ rename_by_note :: () {
     DONE
 
     success, message_decoded := json_parse_string(json, Message, ignore_unknown = false);
-    assert(success);
+    assert(success, "Could not decode message!");
 
     log("Rename_by_note decode result:\n%\n\n", message_decoded);
     assert(message_decoded._context.channel == 1);
