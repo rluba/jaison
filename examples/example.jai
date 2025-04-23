@@ -28,7 +28,10 @@ LevelData :: struct {
     secret:   bool;
     player:   Entity;
     player2:  *Entity;
-    score:    float;
+    union {
+        score:       float;
+        score_v2:    float;
+    }
     entities: [..] Entity;
 
     floats:   [] float;
@@ -58,7 +61,7 @@ LEVEL_DATA_1_JSON := #string DONE
 DONE;
 
 LEVEL_DATA_2_JSON := #string DONE
-{"kind": 2}
+{"kind": 2, "score_v2": 25.1}
 DONE;
 
 Fixed_Size_Data :: struct {
@@ -79,18 +82,19 @@ typed_parsing :: () {
         // success, level := json_parse_file("level.json", LevelData, ignore_unknown=false);
         assert(success);
 
-        log("Typed parsing result 1:\n%\n\n", level);
+        log("Typed parsing result 1:\n%\nscore: %\n\n", level, level.score);
         assert(level.floats.count == 6);
         assert(level.floats[1] > 1);  // Regression test, we had a bug here…
     }
     {
-        // Test parsing integers into enum slots
+        // Test parsing integers into enum slots & alternative union fields
         success, level := json_parse_string(LEVEL_DATA_2_JSON, LevelData, ignore_unknown=false);
         assert(success);
 
-        log("Typed parsing result 2:\n%\n\n", level);
+        log("Typed parsing result 2:\n%\nscore: %\n\n", level, level.score);
 
         assert(level.kind == .LEGENDARY);
+        assert(level.score == 25.1);
     }
     {
         // Test parsing into fixed-sized arrays
