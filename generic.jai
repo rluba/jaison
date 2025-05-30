@@ -191,7 +191,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 				}
 				json_append_escaped(builder, it);
 				append(builder, ": ");
-				v, found := table_find(obj, it);
+				found, v := table_find_new(obj, it);
 				assert(found, "Missing table value %", it);
 				json_write_json_value(builder, v, indent_char, level + 1);
 				if it_index != obj.count - 1	append(builder, ",");
@@ -216,7 +216,7 @@ json_set :: (obj: *JSON_Object, path: string, val: JSON_Value) -> bool {
 	if !next.count		return false;
 	if !remainder.count	return false;
 
-	next_value, success := table_find(obj, next);
+	success, next_value := table_find_new(obj, next);
 	next_obj: *JSON_Object;
 	if success {
 		if next_value.type != JSON_Type.OBJECT	return false;
