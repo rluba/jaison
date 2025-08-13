@@ -490,6 +490,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
             }
 
             memcpy(slot, array.data, array.count * element_size);
+            free(array.data);
         }
 	} else {
 		while true {
