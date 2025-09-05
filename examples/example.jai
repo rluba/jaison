@@ -76,6 +76,26 @@ DATA_ARRAY_2 := #string DONE
 {"data": [1, 2]}
 DONE;
 
+MessageEntry :: struct {
+    union {
+        player: int;
+        player_v2: int;
+    }
+    union {
+        tag: int;
+        tag_v2: int;
+    }
+    name: string;
+    strict: bool;
+    union {
+        messagemode: string;
+        message_mode: string;
+    }
+    roundtrip: int;
+    identifier: string;
+    message: string;
+};
+
 typed_parsing :: () {
     {
         success, level := json_parse_string(LEVEL_DATA_1_JSON, LevelData, ignore_unknown=false);
@@ -111,6 +131,11 @@ typed_parsing :: () {
         // Test parsing into fixed-sized arrays (incorrect size)
         success, result := json_parse_string(DATA_ARRAY_2, Fixed_Size_Data, ignore_unknown=false);
         assert(!success);
+    }
+    {
+        success, result := json_parse_string("{}", MessageEntry, ignore_unknown=false);
+        assert(success);
+        log("Typed parsing result 4:\n%\n\n", result);
     }
 }
 
