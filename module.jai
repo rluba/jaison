@@ -217,6 +217,14 @@ unescape :: (str: string) -> result: string, success: bool {
 	return result, true;
 }
 
+is_inf_or_nan :: (value: u32) -> bool {
+    return (value & 0x7F80_0000) == 0x7F80_0000;
+}
+
+is_inf_or_nan :: (value: u64) -> bool {
+    return (value & 0x7FF0_0000_0000_0000) == 0x7FF0_0000_0000_0000;
+}
+
 #import "Basic";
 #import "File";
 #import "String";

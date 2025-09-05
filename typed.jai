@@ -40,12 +40,28 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 	if info.type == {
 		case .BOOL;
 			append(builder, ifx <<(cast(*bool) data) "true" else "false");
-		case .INTEGER; #through;
-		case .FLOAT;
+		case .INTEGER;
 			any_val: Any;
 			any_val.type = info;
 			any_val.value_pointer = data;
 			print_item_to_builder(builder, any_val);
+		case .FLOAT;
+            as_null := false;
+            if info.runtime_size == 4 {
+                as_null = is_inf_or_nan((cast(*u32)data).*);
+            } else if info.runtime_size == 8 {
+                as_null = is_inf_or_nan((cast(*u64)data).*);
+            }
+
+
+            if as_null {
+                append(builder, "null");
+            } else {
+                any_val: Any;
+                any_val.type = info;
+                any_val.value_pointer = data;
+                print_item_to_builder(builder, any_val);
+            }
 		case .ENUM;
 			any_val: Any;
 			any_val.type = info;

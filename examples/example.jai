@@ -149,6 +149,31 @@ typed_printing :: () {
 
     // success := json_write_file("level.json", level, indent_char="");
     // assert(success);
+
+    // Inf/Nan handlig:
+    floats := float.[
+        0.5,
+        0h7FFF_FFFF, // NaN
+        0hFF80_0001, // also NaN
+        0hFF80_0000, // -inf
+        0h7F80_0000, // +inf
+    ];
+
+    json_string = json_write_string(floats, indent_char = "");
+    log("floats:\n%\n\n", json_string);
+    assert(json_string == "[0.5,null,null,null,null]");
+
+    float64s := float64.[
+        0.5,
+        0h7FFF_FFFF_FFFF_FFFF, // NaN
+        0hFFF0_0000_0000_0001, // also NaN
+        0hFFF0_0000_0000_0000, // -inf
+        0h7FF0_0000_0000_0000, // +inf
+    ];
+
+    json_string = json_write_string(float64s, indent_char = "");
+    log("float64s:\n%\n\n", json_string);
+    assert(json_string == "[0.5,null,null,null,null]");
 }
 
 generic_parsing :: () {
@@ -297,6 +322,19 @@ generic_printing :: () {
     log("Generic_printing result:\n%\n\n", json_string);
 
     //json_write_file("level.json", root);
+
+    // Inf/Nan handling
+	floats: [..] JSON_Value;
+    array_add(*floats, .{type=.NUMBER, number=0.5});
+    array_add(*floats, .{type=.NUMBER, number=0h7FFF_FFFF_FFFF_FFFF}); // NaN
+    array_add(*floats, .{type=.NUMBER, number=0hFFF0_0000_0000_0001}); // also NaN
+    array_add(*floats, .{type=.NUMBER, number=0hFFF0_0000_0000_0000}); // -inf
+    array_add(*floats, .{type=.NUMBER, number=0h7FF0_0000_0000_0000}); // +inf
+    array.array = floats;
+
+    json_string = json_write_string(array, indent_char = "");
+    log("numbers:\n%\n\n", json_string);
+    assert(json_string == "[0.5,null,null,null,null]");
 }
 
 rename_by_note :: () {
