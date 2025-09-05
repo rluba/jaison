@@ -454,13 +454,9 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 	assert(str[0] == #char "[", "Invalid object start %", str);
 	remainder := advance(str);
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
-	if remainder[0] == #char "]" {
-		remainder = advance(remainder);
-		// @Robustness: Do we need to zero out the array?
-		return remainder, true;
-	}
+    if !remainder return "", false;
 
-
+    success := true;
 	if slot {
 		array: Resizable_Array;
 
@@ -471,24 +467,48 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
         }
 
 		while true {
+            if remainder[0] == #char "]" break;
+            if array.count {
+                if remainder[0] != #char ","	{
+                    success = false;
+                    break;
+                }
+                remainder = advance(remainder);
+                remainder = trim_left(remainder, WHITESPACE_CHARS);
+                if !remainder {
+                    success = false;
+                    break;
+                }
+                if remainder[0] == #char "]" {
+                    // Special case for trailing comma. This would also fail in parse_value below, but with a weird error.
+                    success = false;
+                    break;
+                }
+            }
+
+            if info.array_count != -1 && array.count >= info.array_count {
+                log_error("Expected array of size %, but found array of with at least % elements\n", info.array_count, info.array_count + 1);
+                success = false;
+                break;
+            }
+
 			maybe_grow(*array, element_size);
             element_data := array.data + array.count * element_size;
+			array.count += 1;
 			if initializer {
 				initializer(element_data);
 			} else {
 				memset(element_data, 0, element_size);
 			}
 
-			success: bool;
 			remainder, success = parse_value(remainder, element_data, info.element_type, ignore_unknown, "", rename=rename);
-			if !success	return remainder, false;
-
-			array.count += 1;
+            if !success	break;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
-			if remainder[0] != #char ","	break;
-			remainder = advance(remainder);
-			remainder = trim_left(remainder, WHITESPACE_CHARS);
+            if !remainder {
+                success = false;
+                break;
+            }
 		}
 
 		if info.array_type == .VIEW {
@@ -500,29 +520,55 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			<<(cast(*Resizable_Array) slot) = array;
 		} else {
             // Fixed-size array
-            if (info.array_count != array.count) {
-                log_error("Expected array of size %, but found array of size %\n", info.array_count, array.count);
-                return remainder, false;
+            if info.array_count != array.count {
+                log_error("Expected array of size %, but found array of size %. Remaining elements will be default values.\n", info.array_count, array.count);
+                while array.count < info.array_count {
+                    maybe_grow(*array, element_size);
+                    array.count += 1;
+                    element_data := array.data + array.count * element_size;
+                    if initializer {
+                        initializer(element_data);
+                    } else {
+                        memset(element_data, 0, element_size);
+                    }
+                }
             }
+            assert(info.array_count == array.count);
 
             memcpy(slot, array.data, array.count * element_size);
         }
 	} else {
+        first := true;
 		while true {
-			success: bool;
+            if remainder[0] == #char "]" break;
+            if !first {
+                if remainder[0] != #char ","	{
+                    success = false;
+                    break;
+                }
+                remainder = advance(remainder);
+                remainder = trim_left(remainder, WHITESPACE_CHARS);
+                if !remainder {
+                    success = false;
+                    break;
+                }
+            }
+            first = false;
+
 			remainder, success = parse_value(remainder, null, null, ignore_unknown, "", rename=rename);
 			if !success	return remainder, false;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
-			if remainder[0] != #char ","	break;
-			remainder = advance(remainder);
-			remainder = trim_left(remainder, WHITESPACE_CHARS);
+            if !remainder {
+                success = false;
+                break;
+            }
 		}
 	}
 
-	if remainder[0] != #char "]"	return remainder, false;
+	if !remainder || remainder[0] != #char "]"	return remainder, false;
 	remainder = advance(remainder);
-	return remainder, true;
+	return remainder, success;
 }
 
 Member_Offset :: struct {
@@ -548,6 +594,8 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 	assert(str[0] == #char "{", "Invalid object start %", str);
 	remainder := advance(str);
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
+    if !remainder return "", false;
+
 	if remainder[0] == #char "}" {
 		remainder = advance(remainder);
 		return remainder, true;
@@ -562,7 +610,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 	if info fill_member_table(*member_table, info, rename);
 
 	while true {
-		if remainder[0] != #char "\""	return remainder, false;
+		if !remainder || remainder[0] != #char "\""	return remainder, false;
 
 		key: string;
 		success: bool;
@@ -583,19 +631,19 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		}
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		if remainder[0] != #char ":"	return remainder, false;
+		if !remainder || remainder[0] != #char ":"	return remainder, false;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
 		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key, rename);
 		if !success		return remainder, false;
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		if remainder[0] != #char ","	break;
+		if !remainder || remainder[0] != #char ","	break;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
 	}
 
-	if remainder[0] != #char "}"	return remainder, false;
+	if !remainder || remainder[0] != #char "}"	return remainder, false;
 	remainder = advance(remainder);
 	return remainder, true;
 }

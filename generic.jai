@@ -316,6 +316,8 @@ parse_array:: (str: string) -> result: [] JSON_Value, remainder: string, success
 	remainder := advance(str);
 	result: [..] JSON_Value;
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
+    if !remainder return result, remainder, false;
+
 	if remainder[0] == #char "]" {
 		remainder = advance(remainder);
 		return result, remainder, true;
@@ -330,12 +332,12 @@ parse_array:: (str: string) -> result: [] JSON_Value, remainder: string, success
 		array_add(*result, value);
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		if remainder[0] != #char ","	break;
+		if !remainder || remainder[0] != #char ","	break;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
 	}
 
-	if remainder[0] != #char "]"	return result, remainder, false;
+	if !remainder || remainder[0] != #char "]"	return result, remainder, false;
 	remainder = advance(remainder);
 	return result, remainder, true;
 }
@@ -345,6 +347,8 @@ parse_object :: (str: string) -> result: JSON_Object, remainder: string, success
 	remainder := advance(str);
 	result: JSON_Object;
 	remainder = trim_left(remainder, WHITESPACE_CHARS);
+    if !remainder return result, remainder, false;
+
 	if remainder[0] == #char "}" {
 		remainder = advance(remainder);
 		return result, remainder, true;
@@ -361,24 +365,33 @@ parse_object :: (str: string) -> result: JSON_Object, remainder: string, success
 		if !success	return result, remainder, false;
 
 		existing := table_find_pointer(*result, key);
-		if existing		return result, remainder, false;
+		if existing		{
+            free(key);
+            return result, remainder, false;
+        }
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		if remainder[0] != #char ":"	return result, remainder, false;
+		if !remainder || remainder[0] != #char ":" {
+            free(key);
+            return result, remainder, false;
+        }
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
 		value, remainder, success = parse_value(remainder);
-		if !success	return result, remainder, false;
+		if !success	{
+            free(key);
+            return result, remainder, false;
+        }
 
 		table_add(*result, key, value);
 
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
-		if remainder[0] != #char ","	break;
+		if !remainder || remainder[0] != #char ","	break;
 		remainder = advance(remainder);
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
 	}
 
-	if remainder[0] != #char "}"	return result, remainder, false;
+	if !remainder || remainder[0] != #char "}"	return result, remainder, false;
 	remainder = advance(remainder);
 	return result, remainder, true;
 }

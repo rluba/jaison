@@ -142,6 +142,7 @@ expect_and_slice :: (str: string, expected: string) -> remainder: string, succes
 parse_string :: (str: string) -> result: string, remainder: string, success: bool {
 	assert(str[0] == #char "\"", "Invalid string start %", str);
 	inside := advance(str);
+    if !inside return "", "", false;
 	needsUnescape := false;
 	while inside[0] != #char "\"" {
 		if inside.count < 2 	return "", str, false;
@@ -170,15 +171,23 @@ parse_string :: (str: string) -> result: string, remainder: string, success: boo
 unescape :: (str: string) -> result: string, success: bool {
 	result := alloc_string(str.count);
 	rc := 0;
+    success := true;
 	for i: 0..str.count-1 {
 		if str[i] != #char "\\" {
 			// Check for invalid characters for JSON
-			if str[i] < 0x20	return "", false;
+			if str[i] < 0x20	{
+                success = false;
+                break;
+            }
 
 			result[rc] = str[i];
 			rc += 1;
 		} else {
-			if i == str.count - 1	return "", false;
+			if i == str.count - 1	{
+                success = false;
+                break;
+            }
+
 			i += 1;
 			if str[i] == {
 				case #char "\""; #through;
@@ -202,17 +211,28 @@ unescape :: (str: string) -> result: string, success: bool {
 					result[rc] = #char "\t";
 					rc += 1;
 				case #char "u";
-					if i + 4 >= str.count	return "", false;
-					unicode_char, success := parse_unicode(slice(str, i + 1, 4));
-					if !success		return "", false;
+					if i + 4 >= str.count	{
+                        success = false;
+                        break;
+                    }
+					unicode_char, unicode_success := parse_unicode(slice(str, i + 1, 4));
+					if !unicode_success	{
+                        success = false;
+                        break;
+                    }
 					utf8_len := encode_utf8(unicode_char, *(result.data[rc]));
 					rc += utf8_len;
 					i += 4;
 				case;
-					return "", false;
+                    success = false;
+                    break;
 			}
 		}
 	}
+    if !success {
+        free(result);
+        return "", false;
+    }
 	result.count = rc;
 	return result, true;
 }

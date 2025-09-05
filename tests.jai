@@ -111,6 +111,88 @@ free_error :: (error: Index_Result.Error) {
 }
 
 main :: () {
+    // Parser error tests
+    {
+        success, result := json_parse_string("[");
+        assert(!success);
+        json_free(result);
+        success, result = json_parse_string("[\"missing_close_bracket\"");
+        assert(!success);
+        json_free(result);
+        success, result = json_parse_string("\"");
+        assert(!success);
+        json_free(result);
+        success, result = json_parse_string("\"missing_close_quote");
+        assert(!success);
+        json_free(result);
+        success, result = json_parse_string("{");
+        assert(!success);
+        json_free(result);
+        success, result = json_parse_string("{\"missing_close_paren\"");
+        assert(!success);
+        json_free(result);
+    }
+
+    log("Report after parse errors 1:");
+    report_memory_leaks();
+
+    {
+        success, array_result := json_parse_string("[", []string);
+        assert(!success);
+        for array_result free(it);
+        array_free(array_result);
+
+        Debug :: #import "Debug";
+        Debug.breakpoint();
+        success, array_result = json_parse_string("[\"missing_close_bracket\"", []string);
+        assert(!success);
+        log("Result: %", array_result);
+        for array_result free(it);
+        array_free(array_result);
+
+        success, array_result = json_parse_string("[\"missing_item_and_bracket\",", []string);
+        assert(!success);
+        log("Result: %", array_result);
+        for array_result free(it);
+        array_free(array_result);
+
+        success, array_result = json_parse_string("[\"missing_item\",]", []string);
+        assert(!success);
+        log("Result: %", array_result);
+        for array_result free(it);
+        array_free(array_result);
+    }
+
+    log("Report after parse errors 2:");
+    report_memory_leaks();
+
+    {
+        success, string_result := json_parse_string("\"", string);
+        assert(!success);
+        free(string_result);
+        success, string_result = json_parse_string("\"missing_close_quote", string);
+        assert(!success);
+        free(string_result);
+    }
+
+    log("Report after parse errors 3:");
+    report_memory_leaks();
+
+    {
+        Result :: struct {
+            value: string;
+        }
+        success, object_result := json_parse_string("{", Result);
+        assert(!success);
+        free(object_result.value);
+        success, object_result = json_parse_string("{\"value:\": \"missing_close_paren\"", Result);
+        assert(!success);
+        free(object_result.value);
+    }
+
+    log("Report after parse errors 4:");
+    report_memory_leaks();
+
 	{
 		success, result := json_parse_string(JSON, Index_Result);
 		defer free_result(result);
@@ -122,7 +204,7 @@ main :: () {
 		log("Success: % result: %\n", success, result);
 	}
 
-    log("Report 1:");
+    log("Report after complex stuff:");
     report_memory_leaks();
 
 	for 0..200000 {
@@ -132,7 +214,7 @@ main :: () {
         reset_temporary_storage();
 	}
 
-    log("Report 2:");
+    log("Report after long loop:");
     report_memory_leaks();
 
 
@@ -143,6 +225,6 @@ main :: () {
         reset_temporary_storage();
 	}
 
-    log("Report 3:");
+    log("Report after messages:");
     report_memory_leaks();
 }
