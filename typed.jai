@@ -73,11 +73,11 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 			append(builder, "[");
 			if array_data {
-				if indent_char.count {
-					append(builder, "\n");
-					for 0..level	append(builder, indent_char);
-				}
 				for 0..array_count-1 {
+                    if indent_char.count {
+                        append(builder, "\n");
+                        for 0..level	append(builder, indent_char);
+                    }
 					json_write_native(builder, array_data, info_array.element_type, indent_char, ignore, rename, level + 1);
 					if it != array_count - 1		append(builder, ",");
 					array_data += stride;
