@@ -176,6 +176,7 @@ is_generic_json_value :: (info: *Type_Info) -> bool {
 
 parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc) -> remainder: string, success: bool {
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
+    if !remainder return "", false;
 	success := true;
 
 	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, is_generic: bool, info: *Type_Info {
@@ -536,22 +537,15 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
             assert(info.array_count == array.count);
 
             memcpy(slot, array.data, array.count * element_size);
+            free(array.data);
         }
 	} else {
         first := true;
 		while true {
             if remainder[0] == #char "]" break;
             if !first {
-                if remainder[0] != #char ","	{
-                    success = false;
-                    break;
-                }
+                if remainder[0] != #char ","	return remainder, false;
                 remainder = advance(remainder);
-                remainder = trim_left(remainder, WHITESPACE_CHARS);
-                if !remainder {
-                    success = false;
-                    break;
-                }
             }
             first = false;
 
@@ -559,10 +553,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			if !success	return remainder, false;
 
 			remainder = trim_left(remainder, WHITESPACE_CHARS);
-            if !remainder {
-                success = false;
-                break;
-            }
+            if !remainder return "", false;
 		}
 	}
 
@@ -633,7 +624,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		remainder = trim_left(remainder, WHITESPACE_CHARS);
 		if !remainder || remainder[0] != #char ":"	return remainder, false;
 		remainder = advance(remainder);
-		remainder = trim_left(remainder, WHITESPACE_CHARS);
+
 		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key, rename);
 		if !success		return remainder, false;
 

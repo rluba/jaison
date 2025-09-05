@@ -51,11 +51,13 @@ END
 
 Message :: struct {
 	message: string;
+    values: [2] int;
 }
 
 MESSAGE_JSON :: #string END
 {
-	"message" : "hello sailor"
+	"message" : "hello sailor",
+    "values": [1, 2]
 }
 END
 
@@ -113,7 +115,9 @@ free_error :: (error: Index_Result.Error) {
 main :: () {
     // Parser error tests
     {
-        success, result := json_parse_string("[");
+        success, result := json_parse_string("");
+        assert(!success);
+        success, result = json_parse_string("[");
         assert(!success);
         json_free(result);
         success, result = json_parse_string("[\"missing_close_bracket\"");
@@ -142,23 +146,18 @@ main :: () {
         for array_result free(it);
         array_free(array_result);
 
-        Debug :: #import "Debug";
-        Debug.breakpoint();
         success, array_result = json_parse_string("[\"missing_close_bracket\"", []string);
         assert(!success);
-        log("Result: %", array_result);
         for array_result free(it);
         array_free(array_result);
 
         success, array_result = json_parse_string("[\"missing_item_and_bracket\",", []string);
         assert(!success);
-        log("Result: %", array_result);
         for array_result free(it);
         array_free(array_result);
 
         success, array_result = json_parse_string("[\"missing_item\",]", []string);
         assert(!success);
-        log("Result: %", array_result);
         for array_result free(it);
         array_free(array_result);
     }
@@ -182,10 +181,35 @@ main :: () {
         Result :: struct {
             value: string;
         }
-        success, object_result := json_parse_string("{", Result);
+        success, object_result := json_parse_string("", Result);
         assert(!success);
         free(object_result.value);
+
+        success, object_result = json_parse_string("{", Result);
+        assert(!success);
+        free(object_result.value);
+
         success, object_result = json_parse_string("{\"value:\": \"missing_close_paren\"", Result);
+        assert(!success);
+        free(object_result.value);
+
+        success, object_result = json_parse_string("{\"value:\": \"missing_item_and_paren\",", Result);
+        assert(!success);
+        free(object_result.value);
+
+        success, object_result = json_parse_string("{\"value:\": \"missing_item\",}", Result);
+        assert(!success);
+        free(object_result.value);
+
+        success, object_result = json_parse_string("{\"value:\":", Result);
+        assert(!success);
+        free(object_result.value);
+
+        success, object_result = json_parse_string("{\"value:\":}", Result);
+        assert(!success);
+        free(object_result.value);
+
+        success, object_result = json_parse_string("{\"value:\":,}", Result);
         assert(!success);
         free(object_result.value);
     }
