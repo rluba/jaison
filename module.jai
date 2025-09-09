@@ -7,21 +7,21 @@
 // "rename" is used for renaming certain members.
 //      It gets called with the Type_Info_Struct_Member and must return the new name of the field.
 // 		The default procedure rename members by their @JsonName note. Eg: @JsonName(renamed_member).
-json_write_string :: (value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) -> string {
+json_write_string :: (value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Special_Float_Handling.SUPPORT_NULL) -> string {
 	builder: String_Builder;
 	defer free_buffers(*builder);
 	json_append_value(*builder, value, indent_char, ignore, rename, float_handling);
 	return builder_to_string(*builder);
 }
 
-json_write_file :: (filename: string, value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) -> bool {
+json_write_file :: (filename: string, value: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Special_Float_Handling.SUPPORT_NULL) -> bool {
 	builder: String_Builder;
 	defer free_buffers(*builder);
 	json_append_value(*builder, value, indent_char, ignore, rename, float_handling);
 	return write_entire_file(filename, *builder);
 }
 
-json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) {
+json_append_value :: (builder: *String_Builder, val: $T, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Special_Float_Handling.SUPPORT_NULL) {
 	#if T == JSON_Value {
 		json_write_json_value(builder, val, indent_char, float_handling=float_handling);
 	} else {
@@ -61,9 +61,11 @@ json_escape_string :: (str: string) -> string {
 	return escaped;
 }
 
-Float_Handling :: enum {
-    NAN_AND_INFINITY_AS_NULL    :: 1;
-    NAN_AND_INFINITY_AS_STRINGS :: 2;
+// How shall NaN and Infinity be serialized / deserialized?
+Special_Float_Handling :: enum_flags {
+    SUPPORT_NULL    :: 0x01;
+    SUPPORT_STRINGS :: 0x02;
+    SUPPORT_ALL     :: SUPPORT_NULL | SUPPORT_STRINGS;
 }
 
 Ignore_Proc :: #type (member: *Type_Info_Struct_Member) -> bool;
@@ -242,8 +244,8 @@ unescape :: (str: string) -> result: string, success: bool {
 	return result, true;
 }
 
-append_special_float :: (builder: *String_Builder, float_handling: Float_Handling, is_nan: bool, is_negative: bool) {
-    if float_handling == .NAN_AND_INFINITY_AS_NULL {
+append_special_float :: (builder: *String_Builder, float_handling: Special_Float_Handling, is_nan: bool, is_negative: bool) {
+    if !(float_handling & .SUPPORT_STRINGS) {
         append(builder, "null");
     } else if is_nan {
         append(builder, "\"NaN\"");

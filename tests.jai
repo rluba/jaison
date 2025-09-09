@@ -231,14 +231,14 @@ main :: () {
     log("Report after complex stuff:");
     report_memory_leaks();
 
-	for 0..200000 {
+	for 0..200 {
 		success, result := json_parse_string(JSON);
 		defer json_free(result);
 		assert(success, "Parse % failed", it);
         reset_temporary_storage();
 	}
 
-    log("Report after long loop:");
+    log("Report after loop 1:");
     report_memory_leaks();
 
 

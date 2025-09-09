@@ -149,7 +149,7 @@ json_set :: (val: *JSON_Value, value: *JSON_Object) {
 	val.object = value;
 }
 
-json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, indent_char := "\t", level := 0, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) {
+json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, indent_char := "\t", level := 0, float_handling := Special_Float_Handling.SUPPORT_NULL) {
 	if #complete type == {
 		case JSON_Type.NULL;
 			append(builder, "null");

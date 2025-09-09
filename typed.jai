@@ -3,7 +3,7 @@
 // All members of Type that are not present in the JSON are kept at their default values.
 // All fields in the JSON that have no corresponding member in Type are ignored by default
 // but you can pass ignore_unknown = false to fail instead.
-json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename := rename_by_note, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) -> success: bool, T {
+json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename := rename_by_note, float_handling := Special_Float_Handling.SUPPORT_NULL) -> success: bool, T {
 	result: T;
 	if !content then return false, result;
 
@@ -20,7 +20,7 @@ json_parse_string :: (content: string, $T: Type, ignore_unknown := true, rename 
 	return true, result;
 }
 
-json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename := rename_by_note, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) -> success: bool, T {
+json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename := rename_by_note, float_handling := Special_Float_Handling.SUPPORT_NULL) -> success: bool, T {
 	file_data, success := read_entire_file(filename);
 	result: T;
 	if !success		{
@@ -36,7 +36,7 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename :
 	return success, result;
 }
 
-json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling: Float_Handling, level := 0) {
+json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling: Special_Float_Handling, level := 0) {
 	if info.type == {
 		case .BOOL;
 			append(builder, ifx <<(cast(*bool) data) "true" else "false");
@@ -133,7 +133,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 #scope_file
 
-json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename: Rename_Proc, float_handling: Float_Handling, level := 0, first: *bool) {
+json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename: Rename_Proc, float_handling: Special_Float_Handling, level := 0, first: *bool) {
 	for * member: members {
 		if member.flags & .CONSTANT     continue;
 		if ignore(member)               continue;
@@ -173,7 +173,7 @@ is_generic_json_value :: (info: *Type_Info) -> bool {
 	return info == type_info(JSON_Value);
 }
 
-parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc, float_handling: Float_Handling) -> remainder: string, success: bool {
+parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc, float_handling: Special_Float_Handling) -> remainder: string, success: bool {
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
     if !remainder return "", false;
 	success := true;
@@ -246,7 +246,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if slot {
 				if info.type == .POINTER {
                     <<cast(**void) slot = null;
-                } else if info.type == .FLOAT && float_handling == .NAN_AND_INFINITY_AS_NULL {
+                } else if info.type == .FLOAT && float_handling & .SUPPORT_NULL {
                     success = store_float_value(info, slot, to_parse, NAN);
                 } else {
                     builder: String_Builder;
@@ -296,7 +296,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				stored := false;
 				defer if !stored	free(value);
 				if success && slot {
-                    if info && info.type == .FLOAT && float_handling == .NAN_AND_INFINITY_AS_STRINGS {
+                    if info && info.type == .FLOAT && (float_handling & .SUPPORT_STRINGS) {
                         if value == {
                             case "NaN";       success = store_float_value(info, slot, to_parse, NAN);
                             case "Infinity";  success = store_float_value(info, slot, to_parse, INFINITY);
@@ -462,7 +462,7 @@ parse_enum_string :: (str: string, slot: *u8, info_enum: *Type_Info_Enum) -> rem
     return remainder, success;
 }
 
-parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc, float_handling: Float_Handling) -> remainder: string, success: bool {
+parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: bool, rename: Rename_Proc, float_handling: Special_Float_Handling) -> remainder: string, success: bool {
 	element_size: int;
 	if slot {
 		element_size = info.element_type.runtime_size;
@@ -600,7 +600,7 @@ fill_member_table :: (table: *Table(string, Member_Offset), info: *Type_Info_Str
 }
 
 
-parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc, float_handling: Float_Handling) -> remainder: string, success: bool {
+parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc, float_handling: Special_Float_Handling) -> remainder: string, success: bool {
 	assert(str[0] == #char "{", "Invalid object start %", str);
 	remainder := advance(str);
 	remainder = trim_left(remainder, WHITESPACE_CHARS);

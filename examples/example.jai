@@ -165,7 +165,7 @@ typed_printing :: () {
     log("floats:\n%\n\n", json_string);
     assert(json_string == "[0.5,null,null,null,null]");
 
-    json_string = json_write_string(floats, indent_char = "", float_handling = .NAN_AND_INFINITY_AS_STRINGS);
+    json_string = json_write_string(floats, indent_char = "", float_handling = .SUPPORT_STRINGS);
     log("floats:\n%\n\n", json_string);
     assert(json_string == "[0.5,\"NaN\",\"NaN\",\"-Infinity\",\"Infinity\"]");
 
@@ -181,7 +181,7 @@ typed_printing :: () {
     log("float64s:\n%\n\n", json_string);
     assert(json_string == "[0.5,null,null,null,null]");
 
-    json_string = json_write_string(float64s, indent_char = "", float_handling = .NAN_AND_INFINITY_AS_STRINGS);
+    json_string = json_write_string(float64s, indent_char = "", float_handling = .SUPPORT_STRINGS);
     log("float64s:\n%\n\n", json_string);
     assert(json_string == "[0.5,\"NaN\",\"NaN\",\"-Infinity\",\"Infinity\"]");
 }
