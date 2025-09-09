@@ -149,15 +149,16 @@ json_set :: (val: *JSON_Value, value: *JSON_Object) {
 	val.object = value;
 }
 
-json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, indent_char := "\t", level := 0) {
+json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, indent_char := "\t", level := 0, float_handling := Float_Handling.NAN_AND_INFINITY_AS_NULL) {
 	if #complete type == {
 		case JSON_Type.NULL;
 			append(builder, "null");
 		case JSON_Type.BOOLEAN;
 			append(builder, ifx boolean "true" else "false");
 		case JSON_Type.NUMBER;
-            if is_inf_or_nan((cast(*u64)*number).*) {
-			    append(builder, "null");
+            is_nan, is_infinity, is_negative := get_nan_or_infinity((cast(*u64) *number).*);
+            if is_nan || is_infinity {
+                append_special_float(builder, float_handling, is_nan, is_negative);
             } else {
                 print_item_to_builder(builder, number);
             }
@@ -170,7 +171,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 					append(builder, "\n");
 					for 0..level	append(builder, indent_char);
 				}
-				json_write_json_value(builder, it, indent_char, level + 1);
+				json_write_json_value(builder, it, indent_char, level + 1, float_handling);
 				if it_index != array.count - 1	append(builder, ",");
 			}
 			if indent_char.count {
@@ -197,7 +198,7 @@ json_write_json_value :: (builder: *String_Builder, using val: JSON_Value, inden
 				append(builder, ": ");
 				found, v := table_find_new(obj, it);
 				assert(found, "Missing table value %", it);
-				json_write_json_value(builder, v, indent_char, level + 1);
+				json_write_json_value(builder, v, indent_char, level + 1, float_handling);
 				if it_index != obj.count - 1	append(builder, ",");
 			}
 			if indent_char.count {

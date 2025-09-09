@@ -61,7 +61,7 @@ LEVEL_DATA_1_JSON := #string DONE
 DONE;
 
 LEVEL_DATA_2_JSON := #string DONE
-{"kind": 2, "score_v2": 25.1}
+{"kind": 2, "score_v2": 25.1, "floats": [0.5, null]}
 DONE;
 
 Fixed_Size_Data :: struct {
@@ -115,6 +115,8 @@ typed_parsing :: () {
 
         assert(level.kind == .LEGENDARY);
         assert(level.score == 25.1);
+        assert(level.floats.count == 2);
+        assert(is_nan(level.floats[1]));
     }
     {
         // Test parsing into fixed-sized arrays
@@ -163,6 +165,10 @@ typed_printing :: () {
     log("floats:\n%\n\n", json_string);
     assert(json_string == "[0.5,null,null,null,null]");
 
+    json_string = json_write_string(floats, indent_char = "", float_handling = .NAN_AND_INFINITY_AS_STRINGS);
+    log("floats:\n%\n\n", json_string);
+    assert(json_string == "[0.5,\"NaN\",\"NaN\",\"-Infinity\",\"Infinity\"]");
+
     float64s := float64.[
         0.5,
         0h7FFF_FFFF_FFFF_FFFF, // NaN
@@ -174,6 +180,10 @@ typed_printing :: () {
     json_string = json_write_string(float64s, indent_char = "");
     log("float64s:\n%\n\n", json_string);
     assert(json_string == "[0.5,null,null,null,null]");
+
+    json_string = json_write_string(float64s, indent_char = "", float_handling = .NAN_AND_INFINITY_AS_STRINGS);
+    log("float64s:\n%\n\n", json_string);
+    assert(json_string == "[0.5,\"NaN\",\"NaN\",\"-Infinity\",\"Infinity\"]");
 }
 
 generic_parsing :: () {
@@ -446,6 +456,13 @@ enum_errors :: () {
     }
 }
 
+is_nan :: (value: float) -> bool {
+    v := value;
+    bits := (cast(*s32) *v).*;
+    is_special := (bits & 0x7F80_0000) == 0x7F80_0000;
+    mant := (bits & 0x007F_FFFF);
+    return (is_special && mant);
+}
 
 #import "Basic";
 #import "Hash_Table"; // To be able to iterate over node.object
