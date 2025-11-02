@@ -628,7 +628,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 		if !success		return remainder, false;
 		defer free(key);
 
-		member_found, member_offset := table_find_new(*member_table, key);
+		member_found, member_offset := table_find(*member_table, key);
 
 		member_slot: *u8;
 		member_info: *Type_Info;
