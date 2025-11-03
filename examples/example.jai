@@ -263,7 +263,7 @@ DONE
     get :: (json_val: JSON_Value, key: string, expected_type: JSON_Type) -> JSON_Value {
         assert(json_val.type == .OBJECT);
         table := json_val.object;
-        success, val := Hash_Table.table_find_new(table, key);
+        success, val := Hash_Table.table_find(table, key);
         assert(success);
         assert(val.type == expected_type);
         return val;
@@ -272,7 +272,7 @@ DONE
     // Check for version number that may or may not exist
     version: float64 = -1;
     assert(root.type == .OBJECT);
-    success2, val := Hash_Table.table_find_new(root.object, "version");
+    success2, val := Hash_Table.table_find(root.object, "version");
     if success2 {
         if val.type == .NUMBER {
             version = val.number;
