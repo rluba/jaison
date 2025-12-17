@@ -39,7 +39,7 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename :
 json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling: Special_Float_Handling, level := 0) {
 	if info.type == {
 		case .BOOL;
-			append(builder, ifx <<(cast(*bool) data) "true" else "false");
+			append(builder, ifx (.*)(cast(*bool) data) "true" else "false");
 		case .INTEGER;
 			any_val: Any;
 			any_val.type = info;
@@ -70,7 +70,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			print_item_to_builder(builder, any_val);
 			append(builder, #char "\"");
 		case .STRING;
-			json_append_escaped(builder, <<(cast(*string) data));
+			json_append_escaped(builder, (.*)(cast(*string) data));
 		case .ARRAY;
 			info_array := cast(*Type_Info_Array) info;
 			element_size := info_array.element_type.runtime_size;
@@ -80,10 +80,10 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			array_data := data;
 			array_count := info_array.array_count;
 			if info_array.array_count == -1 {
-				array_count = << cast(*s64) data;
+				array_count = (.*) cast(*s64) data;
 
 				array_dest: **void = data + 8;
-				array_data = << array_dest;
+				array_data = array_dest.*;
 			}
 
 			append(builder, "[");
@@ -107,7 +107,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			struct_info := cast(*Type_Info_Struct) info;
 			if is_generic_json_value(info) {
 				value := cast(*JSON_Value) data;
-				json_write_json_value(builder, <<value, indent_char, level);
+				json_write_json_value(builder, value.*, indent_char, level);
 			} else {
 				append(builder, #char "{");
 				first := true;
@@ -120,7 +120,7 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 			}
 		case .POINTER;
 			ptr_info := cast(*Type_Info_Pointer) info;
-			ptr := << cast(**void) data;
+			ptr := (.*) cast(**void) data;
 			if ptr {
 				json_write_native(builder, ptr, ptr_info.pointer_to, indent_char, ignore, rename, float_handling, level);
 			} else {
@@ -141,8 +141,8 @@ json_write_native_members :: (builder: *String_Builder, data: *void, members: []
 			info := cast(*Type_Info_Struct) member.type;
 			json_write_native_members(builder, data + member.offset_in_bytes, info.members, indent_char, ignore, rename, float_handling, level, first);
 		} else {
-			if !<<first	append(builder, ",");
-			<<first = false;
+			if !first.*	append(builder, ",");
+			first.* = false;
 
 			if indent_char.count {
 				append(builder, "\n");
@@ -214,7 +214,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			} else {
 				memset(value_slot, 0, value_info.runtime_size);
 			}
-			<<cast(**u8)slot = value_slot;
+			(.*)cast(**u8)slot = value_slot;
 			return value_slot, true, is_generic, value_info;
 		} else {
 			return slot, true, is_generic, value_info;
@@ -228,10 +228,10 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
                 json_set(cast(*JSON_Value)value_slot, value);
             } else {
                 if value_info.runtime_size == 4 {
-                    (<< cast(*float) slot) = cast(float) value;
+                    ((.*) cast(*float) slot) = cast(float) value;
                 } else {
                     assert(value_info.runtime_size == 8);
-                    (<< cast(*float64) slot) = value;
+                    ((.*) cast(*float64) slot) = value;
                 }
             }
         }
@@ -245,7 +245,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if !success		return remainder, false;
 			if slot {
 				if info.type == .POINTER {
-                    <<cast(**void) slot = null;
+                    (.*)cast(**void) slot = null;
                 } else if info.type == .FLOAT && float_handling & .SUPPORT_NULL {
                     success = store_float_value(info, slot, to_parse, NAN);
                 } else {
@@ -266,7 +266,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					if is_generic {
 						json_set(cast(*JSON_Value)value_slot, true);
 					} else {
-						<<cast(*bool)value_slot = true;
+						(.*)cast(*bool)value_slot = true;
 					}
 				}
 			}
@@ -280,7 +280,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 					if is_generic {
 						json_set(cast(*JSON_Value)value_slot, false);
 					} else {
-						<<cast(*bool)value_slot = false;
+						(.*)cast(*bool)value_slot = false;
 					}
 				}
 			}
@@ -314,7 +314,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
                             if is_generic {
                                 json_set(cast(*JSON_Value)value_slot, value);
                             } else {
-                                <<cast(*string)value_slot = value;
+                                (.*)cast(*string)value_slot = value;
                             }
                             stored = true;
                         }
@@ -345,7 +345,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 			if success {
 				if is_generic {
 					value := New(JSON_Object);
-					<<value, remainder, success = parse_object(remainder);
+					value.*, remainder, success = parse_object(remainder);
 					json_set(cast(*JSON_Value)value_slot, value);
 				} else {
 					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown, rename=rename, float_handling=float_handling);
@@ -535,7 +535,7 @@ parse_array :: (str: string, slot: *u8, info: *Type_Info_Array, ignore_unknown: 
 			view.data = array.data;
 		} else if info.array_count == -1 {
             // Resizable array
-			<<(cast(*Resizable_Array) slot) = array;
+			(.*)(cast(*Resizable_Array) slot) = array;
 		} else {
             // Fixed-size array
             if info.array_count != array.count {
@@ -591,7 +591,7 @@ fill_member_table :: (table: *Table(string, Member_Offset), info: *Type_Info_Str
     for * member: info.members {
         offset := base_offset + member.offset_in_bytes;
         name := rename(member);
-        assert(!table_find_pointer(table, name), "Redeclaration of member \"%\": % vs. %", name, <<member, <<table_find_pointer(table, name));
+        assert(!table_find_pointer(table, name), "Redeclaration of member \"%\": % vs. %", name, member.*, (.*)table_find_pointer(table, name));
         table_set(table, name, .{member, offset});
         if (member.flags & .USING) && (member.type.type == .STRUCT) {
             fill_member_table(table, cast(*Type_Info_Struct)member.type, rename, offset);
@@ -636,7 +636,7 @@ parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown
 			member_slot = slot + member_offset.offset_in_bytes;
 			member_info = member_offset.member.type;
 		} else if !ignore_unknown {
-			log_error("Missing member % in %", key, <<info);
+			log_error("Missing member % in %", key, info.*);
 			return remainder, false;
 		}
 
