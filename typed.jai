@@ -178,7 +178,7 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
     if !remainder return "", false;
 	success := true;
 
-	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, is_generic: bool, info: *Type_Info {
+	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, is_generic: bool, info: *Type_Info, is_table: bool {
 		value_info := info;
 		if info.type == .POINTER {
 			pointer_info := cast(*Type_Info_Pointer) info;
@@ -199,7 +199,36 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
             print_type_to_builder(*builder, info);
             type_name := builder_to_string(*builder,, temp);
 			log_error("Cannot parse % value into type \"%\". Remaining input is: %…", expected_type, type_name, teaser);
-			return null, false, false, value_info;
+			return null, false, false, value_info, false;
+		}
+
+        // @Incomplete: Add support for Tables of Any Types.
+        // Currently all the `Type_Info` handling is happening at
+        // Runtime. But supporting Tables of Values that differ in
+        // size requires polymorphing such operations as `table_add()`
+        // which means we need to know the `Type_Info`-s at compile
+        // time. Until the type.jai is refactored to pass all the
+        // necessary `Type_Info` with `$` we can only offer Table of
+        // Pointers.
+        // - rexim 2026-01-20
+		is_type_info_table_of_pointers :: (info: *Type_Info) -> (value_info: *Type_Info_Pointer) {
+			if (info.type != .STRUCT) return null;
+			struct_info := cast(*Type_Info_Struct)info;
+			if (struct_info.name != "Table") return null;
+			for struct_info.specified_parameters {
+				if it.name == "Value_Type" {
+					if (it.type.type == .TYPE) {
+						value_info := (cast(**Type_Info)(struct_info.constant_storage.data + it.offset_into_constant_storage)).*;
+						if value_info.type != .POINTER return null;
+						return cast(*Type_Info_Pointer)value_info;
+					}
+				}
+			}
+			return null;
+		}
+		member_info := is_type_info_table_of_pointers(value_info);
+		if member_info {
+			return slot, true, false, member_info, true;
 		}
 
 		if info.type == .POINTER {
@@ -215,9 +244,9 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 				memset(value_slot, 0, value_info.runtime_size);
 			}
 			(.*)cast(**u8)slot = value_slot;
-			return value_slot, true, is_generic, value_info;
+			return value_slot, true, is_generic, value_info, false;
 		} else {
-			return slot, true, is_generic, value_info;
+			return slot, true, is_generic, value_info, false;
 		}
 	}
 
@@ -339,14 +368,17 @@ parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: b
 		case #char "{";
 			value_slot: *u8;
 			value_info: *Type_Info;
+			is_table: bool;
 			if slot {
-				value_slot, success, is_generic, value_info = prepare_slot(.STRUCT, info, slot, to_parse);
+				value_slot, success, is_generic, value_info, is_table = prepare_slot(.STRUCT, info, slot, to_parse);
 			}
 			if success {
 				if is_generic {
 					value := New(JSON_Object);
 					value.*, remainder, success = parse_object(remainder);
 					json_set(cast(*JSON_Value)value_slot, value);
+				} else if is_table {
+					remainder, success = parse_object_as_table_of_pointers(remainder, value_slot, cast(*Type_Info_Pointer)value_info, ignore_unknown, rename=rename, float_handling=float_handling);
 				} else {
 					remainder, success = parse_object(remainder, value_slot, cast(*Type_Info_Struct) value_info, ignore_unknown, rename=rename, float_handling=float_handling);
 				}
@@ -599,6 +631,49 @@ fill_member_table :: (table: *Table(string, Member_Offset), info: *Type_Info_Str
     }
 }
 
+parse_object_as_table_of_pointers :: (str: string, slot: *u8, value_info: *Type_Info_Pointer, ignore_unknown: bool, rename: Rename_Proc, float_handling: Special_Float_Handling) -> remainder: string, success: bool {
+	assert(str[0] == #char "{", "Invalid object start %", str);
+	remainder := advance(str);
+	remainder = trim_left(remainder, WHITESPACE_CHARS);
+	if !remainder return "", false;
+
+	if remainder[0] == #char "}" {
+		remainder = advance(remainder);
+		return remainder, true;
+	}
+
+	table := cast(*Table(string, *void))slot;
+
+	while true {
+		if !remainder || remainder[0] != #char "\""	return remainder, false;
+
+		key: string;
+		success: bool;
+		key, remainder, success = parse_string(remainder);
+		if !success		return remainder, false;
+		defer free(key);
+
+		remainder = trim_left(remainder, WHITESPACE_CHARS);
+		if !remainder || remainder[0] != #char ":"	return remainder, false;
+		remainder = advance(remainder);
+
+		member_info := value_info.pointer_to;
+		member_slot := NewArray(member_info.runtime_size, u8).data;
+		remainder, success = parse_value(remainder, member_slot, member_info, ignore_unknown, key, rename, float_handling=float_handling);
+		if !success		return remainder, false;
+
+		table_add(table, copy_string(key), member_slot);
+
+		remainder = trim_left(remainder, WHITESPACE_CHARS);
+		if !remainder || remainder[0] != #char ","	break;
+		remainder = advance(remainder);
+		remainder = trim_left(remainder, WHITESPACE_CHARS);
+	}
+
+	if !remainder || remainder[0] != #char "}"	return remainder, false;
+	remainder = advance(remainder);
+	return remainder, true;
+}
 
 parse_object :: (str: string, slot: *u8, info: *Type_Info_Struct, ignore_unknown: bool, rename: Rename_Proc, float_handling: Special_Float_Handling) -> remainder: string, success: bool {
 	assert(str[0] == #char "{", "Invalid object start %", str);
