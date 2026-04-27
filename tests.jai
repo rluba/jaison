@@ -231,6 +231,52 @@ main :: () {
     log("Report after complex stuff:");
     report_memory_leaks();
 
+    {
+        // Variant parsing
+        JSON :: #string EOF
+        {
+            "val1": 5,
+            "val2": 10,
+            "val3": 20,
+            "val4": "Hello,",
+            "val5": "World!"
+        }
+        EOF
+
+        Variant1 :: #type int;
+        Variant2 :: #type,isa u8;
+        Variant3 :: #type,distinct s16;
+        Variant4 :: #type string;
+        Variant5 :: #type,distinct Variant4;
+
+        Parse_Struct :: struct {
+            val1: Variant1;
+            val2: Variant2;
+            val3: Variant3;
+
+            val4: Variant4;
+            val5: Variant5;
+        }
+
+        success, result := json_parse_string(JSON, Parse_Struct);
+        assert(success);
+        assert(result.val1 == 5 && result.val2 == 10 && result.val3 == 20);
+        assert(result.val4 == "Hello," && result.val5 == "World!");
+
+        free(result.val4);
+        free(result.val5.data);
+
+        // Variant writing
+        sb: String_Builder;
+        x: Variant5 = "Hello!"; // 2-level deep variant of string
+        json_write_native(*sb, *x, type_info(type_of(x)), indent_char="", float_handling=.SUPPORT_NULL);
+
+        json := builder_to_string(*sb,, temp);
+        assert(json == "\"Hello!\"", json);
+    }
+    log("Report after variant parsing and writing:");
+    report_memory_leaks();
+
 	for 0..200 {
 		success, result := json_parse_string(JSON);
 		defer json_free(result);

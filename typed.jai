@@ -37,6 +37,9 @@ json_parse_file :: (filename: string, $T: Type, ignore_unknown := true, rename :
 }
 
 json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, indent_char := "\t", ignore := ignore_by_note, rename := rename_by_note, float_handling := Special_Float_Handling.SUPPORT_NULL, level := 0) {
+
+	info = variant_to_base_type_info(info);
+
 	if info.type == {
 		case .BOOL;
 			append(builder, ifx (.*)(cast(*bool) data) "true" else "false");
@@ -133,6 +136,18 @@ json_write_native :: (builder: *String_Builder, data: *void, info: *Type_Info, i
 
 #scope_file
 
+variant_to_base_type_info :: inline (info: *Type_Info) -> *Type_Info {
+
+	// Info can be null sometimes so make sure before checking type
+	if !info return null;
+
+	while info.type == .VARIANT {
+		info = info.(*Type_Info_Variant).variant_of;
+	}
+
+	return info;
+}
+
 json_write_native_members :: (builder: *String_Builder, data: *void, members: [] Type_Info_Struct_Member, indent_char := "\t", ignore := ignore_by_note, rename: Rename_Proc, float_handling: Special_Float_Handling, level := 0, first: *bool) {
 	for * member: members {
 		if member.flags & .CONSTANT     continue;
@@ -174,9 +189,12 @@ is_generic_json_value :: (info: *Type_Info) -> bool {
 }
 
 parse_value :: (to_parse: string, slot: *u8, info: *Type_Info, ignore_unknown: bool, field_name: string, rename: Rename_Proc, float_handling: Special_Float_Handling) -> remainder: string, success: bool {
+
 	remainder := trim_left(to_parse, WHITESPACE_CHARS);
     if !remainder return "", false;
 	success := true;
+
+	info = variant_to_base_type_info(info);
 
 	prepare_slot :: (expected_type: Type_Info_Tag, info: *Type_Info, slot: *u8, to_parse: string) -> *u8, success: bool, is_generic: bool, info: *Type_Info {
 		value_info := info;
